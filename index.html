@@ -627,23 +627,15 @@
             window.location.href = 'volleyball-tracker.html?matchId=' + encodeURIComponent(matchId);
         }
 
-        // Navigate to Analyze Stats (only if online)
+        // Navigate to Analyze Stats
         function goToAnalyzeStats() {
-            if (!OfflineStorage.isOnline()) return;
             window.location.href = 'analyze-stats.html';
         }
 
-        // Enable/disable Analyze Stats based on connectivity
+        // Analyze Stats button is always enabled (reads from localStorage)
         function updateAnalyzeStatsButton() {
             var card = document.getElementById('analyze-stats-card');
-            var desc = document.getElementById('analyze-stats-desc');
-            if (OfflineStorage.isOnline()) {
-                card.classList.remove('disabled-offline');
-                desc.textContent = 'View and analyze match statistics';
-            } else {
-                card.classList.add('disabled-offline');
-                desc.textContent = 'Requires internet connection';
-            }
+            card.classList.remove('disabled-offline');
         }
 
         // Start New Match - navigate to match setup page
