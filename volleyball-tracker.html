@@ -1,0 +1,1656 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Des Moines Eclipse Stat Tracker</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#dc2626">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="offline-storage.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Barlow+Condensed:wght@400;500;600;700&display=swap');
+
+        :root {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2a2a2a;
+            --bg-card: #3a3a3a;
+            --accent-primary: #dc2626;
+            --accent-secondary: #ef4444;
+            --accent-green: #10b981;
+            --accent-red: #dc2626;
+            --text-primary: #f5f5f5;
+            --text-secondary: #9ca3af;
+            --border: #525252;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Barlow Condensed', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .app-container {
+            max-width: 1800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        .app-header {
+            text-align: center;
+            margin-bottom: 30px;
+            position: relative;
+        }
+
+        .app-title {
+            font-family: 'Oswald', sans-serif;
+            font-size: 3.5rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            animation: titleSlide 0.8s ease-out;
+        }
+
+        @keyframes titleSlide {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .match-controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+
+        .set-indicator {
+            display: inline-flex;
+            gap: 10px;
+            background: var(--bg-secondary);
+            padding: 10px 20px;
+            border-radius: 8px;
+            border: 2px solid var(--border);
+        }
+
+        .set-badge {
+            padding: 5px 15px;
+            border-radius: 5px;
+            font-weight: 600;
+            font-size: 1.1rem;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 2px solid transparent;
+        }
+
+        .set-badge.active {
+            background: var(--accent-primary);
+            border-color: var(--accent-primary);
+            transform: scale(1.1);
+        }
+
+        .set-badge:not(.active) {
+            background: var(--bg-card);
+            opacity: 0.6;
+        }
+
+        .set-badge:not(.active):hover {
+            opacity: 1;
+            border-color: var(--accent-secondary);
+        }
+
+        .main-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            animation: fadeIn 0.6s ease-out 0.2s both;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .section {
+            background: var(--bg-secondary);
+            border-radius: 12px;
+            padding: 25px;
+            border: 2px solid var(--border);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .section::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+        }
+
+        .section-title {
+            font-family: 'Oswald', sans-serif;
+            font-size: 1.8rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            margin-bottom: 20px;
+            text-transform: uppercase;
+            color: var(--accent-primary);
+        }
+
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+
+        .undo-btn {
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            padding: 8px 16px;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1.5rem;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .undo-btn:hover:not(:disabled) {
+            border-color: var(--accent-primary);
+            background: var(--bg-secondary);
+            transform: scale(1.05);
+        }
+
+        .undo-btn:disabled {
+            opacity: 0.3;
+            cursor: not-allowed;
+        }
+
+        .undo-btn-text {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .score-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+
+        .team-card {
+            background: var(--bg-card);
+            border-radius: 10px;
+            padding: 20px;
+            border: 2px solid var(--border);
+            transition: all 0.3s;
+        }
+
+        .team-card:hover {
+            border-color: var(--accent-primary);
+            transform: translateX(5px);
+        }
+
+        .team-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .team-name-static {
+            font-family: 'Oswald', sans-serif;
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            padding: 5px;
+        }
+
+        .team-score {
+            font-family: 'Oswald', sans-serif;
+            font-size: 3.5rem;
+            font-weight: 700;
+            color: var(--accent-primary);
+            text-shadow: 0 0 20px rgba(220, 38, 38, 0.5);
+            animation: pulse 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+
+        .scoring-buttons {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .score-btn {
+            font-family: 'Barlow Condensed', sans-serif;
+            padding: 12px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .score-btn::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.3);
+            transform: translate(-50%, -50%);
+            transition: width 0.6s, height 0.6s;
+        }
+
+        .score-btn:active::before {
+            width: 300px;
+            height: 300px;
+        }
+
+        .score-btn.kill { background: var(--accent-green); color: white; }
+        .score-btn.block { background: #6b7280; color: white; }
+        .score-btn.serve { background: var(--accent-secondary); color: white; }
+        .score-btn.error { background: #991b1b; color: white; }
+
+        .score-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .score-stats {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 12px;
+        }
+
+        .stat-item {
+            background: var(--bg-secondary);
+            padding: 8px;
+            border-radius: 5px;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+
+        .stat-label {
+            font-size: 0.8rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .stat-value {
+            font-family: 'Oswald', sans-serif;
+            font-size: 1.3rem;
+            color: var(--accent-primary);
+        }
+
+        .set-controls {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 2px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .set-controls-top {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+            justify-content: center;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+
+        .save-set-btn {
+            font-family: 'Barlow Condensed', sans-serif;
+            padding: 12px 30px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+        }
+
+        .save-set-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(220, 38, 38, 0.5);
+        }
+
+        .set-history {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            align-items: center;
+        }
+
+        .set-score {
+            background: var(--bg-card);
+            padding: 10px 20px;
+            border-radius: 8px;
+            font-family: 'Oswald', sans-serif;
+            font-size: 1.3rem;
+            border: 2px solid var(--border);
+            letter-spacing: 0.5px;
+        }
+
+        .player-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 8px;
+            margin-bottom: 12px;
+        }
+
+        .player-card {
+            position: relative;
+            display: flex;
+            gap: 8px;
+            min-height: 48px;
+        }
+
+        .player-btn {
+            font-family: 'Oswald', sans-serif;
+            padding: 10px 12px;
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            cursor: pointer;
+            transition: all 0.3s;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            position: relative;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .player-card.expanded .player-btn {
+            width: 25%;
+            padding: 8px 4px;
+            font-size: 0.85rem;
+        }
+
+        .player-btn:hover {
+            border-color: var(--accent-primary);
+            transform: scale(1.02);
+        }
+
+        .player-card.expanded .player-btn:hover {
+            transform: scale(1);
+        }
+
+        .player-btn .player-stats-mini {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 0.7rem;
+            font-weight: 500;
+            margin-top: 3px;
+            color: var(--text-secondary);
+        }
+
+        .player-card.expanded .player-btn .player-stats-mini {
+            font-size: 0.6rem;
+            margin-top: 2px;
+        }
+
+        .player-outcomes {
+            display: none;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 8px;
+            width: 75%;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .player-card.expanded .player-outcomes {
+            display: grid;
+        }
+
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+
+        .outcome-btn-small {
+            font-family: 'Barlow Condensed', sans-serif;
+            padding: 15px 10px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .outcome-btn-small::after {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 0;
+            height: 0;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.4);
+            transform: translate(-50%, -50%);
+            transition: width 0.5s, height 0.5s;
+        }
+
+        .outcome-btn-small:active::after {
+            width: 300px;
+            height: 300px;
+        }
+
+        .outcome-btn-small.kill-btn { background: var(--accent-green); color: white; }
+        .outcome-btn-small.error-btn { background: #991b1b; color: white; }
+        .outcome-btn-small.block-btn { background: #3b82f6; color: white; }
+        .outcome-btn-small.inplay-btn { background: #6b7280; color: white; }
+
+        .outcome-btn-small:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .stats-table {
+            background: var(--bg-card);
+            border-radius: 10px;
+            overflow: hidden;
+            border: 2px solid var(--border);
+        }
+
+        .stats-table table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .stats-table th {
+            background: var(--bg-primary);
+            padding: 12px;
+            text-align: left;
+            font-family: 'Oswald', sans-serif;
+            font-size: 1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--accent-primary);
+        }
+
+        .stats-table td {
+            padding: 12px;
+            border-top: 1px solid var(--border);
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+
+        .stats-table tr:hover {
+            background: rgba(255, 102, 0, 0.1);
+        }
+
+        .stats-table .player-name {
+            font-family: 'Oswald', sans-serif;
+            font-weight: 700;
+            font-size: 1.2rem;
+            color: var(--text-primary);
+        }
+
+        .percentage {
+            font-family: 'Oswald', sans-serif;
+            font-weight: 700;
+            color: var(--accent-secondary);
+        }
+
+        .reset-section {
+            margin-top: 30px;
+            padding-top: 30px;
+            border-top: 2px solid var(--border);
+            text-align: center;
+        }
+
+        .finish-btn {
+            font-family: 'Barlow Condensed', sans-serif;
+            padding: 15px 40px;
+            background: var(--accent-green);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.2rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+            box-shadow: 0 4px 10px rgba(16, 185, 129, 0.3);
+        }
+
+        .finish-btn:hover { transform: scale(1.05); box-shadow: 0 6px 20px rgba(16, 185, 129, 0.5); background: #059669; }
+        .finish-btn:active { transform: scale(0.98); }
+
+        .reset-btn {
+            font-family: 'Barlow Condensed', sans-serif;
+            padding: 15px 40px;
+            background: var(--accent-red);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.2rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+            box-shadow: 0 4px 10px rgba(239, 68, 68, 0.3);
+        }
+
+        .reset-btn:hover { transform: scale(1.05); box-shadow: 0 6px 20px rgba(239, 68, 68, 0.5); background: #dc2626; }
+        .reset-btn:active { transform: scale(0.98); }
+
+        .completed-match-banner {
+            background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+            color: white;
+            padding: 15px 30px;
+            margin-bottom: 20px;
+            border-radius: 10px;
+            text-align: center;
+            font-family: 'Oswald', sans-serif;
+            font-size: 1.3rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            box-shadow: 0 4px 15px rgba(220, 38, 38, 0.3);
+            animation: slideDown 0.5s ease-out;
+        }
+
+        @keyframes slideDown {
+            from { opacity: 0; transform: translateY(-20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .back-to-analytics-btn {
+            font-family: 'Barlow Condensed', sans-serif;
+            padding: 12px 30px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+            margin-left: 15px;
+        }
+
+        .back-to-analytics-btn:hover {
+            border-color: var(--accent-primary);
+            transform: scale(1.05);
+            background: var(--bg-card);
+        }
+
+        @media (max-width: 1200px) {
+            .main-grid { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 768px) {
+            .app-title { font-size: 2.5rem; }
+            .score-grid { grid-template-columns: 1fr; }
+            .player-grid { grid-template-columns: 1fr; }
+        }
+
+        /* Save Set Modal */
+        .save-set-modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.7);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            animation: modalFadeIn 0.25s ease-out;
+        }
+
+        @keyframes modalFadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+
+        .save-set-modal {
+            background: var(--bg-secondary);
+            border: 3px solid var(--accent-primary);
+            border-radius: 15px;
+            padding: 40px;
+            text-align: center;
+            max-width: 420px;
+            width: 90%;
+            position: relative;
+            overflow: hidden;
+            animation: modalSlideUp 0.3s ease-out;
+        }
+
+        @keyframes modalSlideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .save-set-modal::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+        }
+
+        .save-set-modal-title {
+            font-family: 'Oswald', sans-serif;
+            font-size: 2rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--accent-primary);
+            margin-bottom: 10px;
+        }
+
+        .save-set-modal-score {
+            font-family: 'Oswald', sans-serif;
+            font-size: 3rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 30px;
+            letter-spacing: 2px;
+        }
+
+        .save-set-modal-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+        }
+
+        .save-set-modal-btn {
+            font-family: 'Barlow Condensed', sans-serif;
+            padding: 14px 35px;
+            border: none;
+            border-radius: 8px;
+            font-size: 1.15rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+        }
+
+        .save-set-modal-btn.primary {
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            color: white;
+        }
+
+        .save-set-modal-btn.primary:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 20px rgba(220, 38, 38, 0.5);
+        }
+
+        .save-set-modal-btn.secondary {
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            border: 2px solid var(--border);
+        }
+
+        .save-set-modal-btn.secondary:hover {
+            border-color: var(--text-secondary);
+            transform: scale(1.05);
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Completed Match Banner (shown only for completed matches) -->
+        <div id="completed-match-banner" style="display: none;"></div>
+
+        <div class="app-header">
+            <div class="match-controls">
+                <div class="set-indicator">
+                    <div class="set-badge active" data-set="1">Set 1</div>
+                    <div class="set-badge" data-set="2">Set 2</div>
+                    <div class="set-badge" data-set="3">Set 3</div>
+                </div>
+            </div>
+
+            <div class="set-controls-top">
+                <button class="save-set-btn" onclick="saveSet()">Save Set Score</button>
+                <div class="set-history" id="set-history"></div>
+                <button class="finish-btn" id="finish-match-btn" onclick="finishMatch()" style="display: none;">Finish Match</button>
+                <button class="back-to-analytics-btn" id="back-to-analytics-btn" onclick="backToAnalytics()" style="display: none;">← Back to Analytics</button>
+            </div>
+        </div>
+
+        <div class="main-grid">
+            <!-- SCORE TRACKING -->
+            <div class="section">
+                <div class="section-header">
+                    <h2 class="section-title">Score Tracking</h2>
+                    <button class="undo-btn" id="score-undo-btn" onclick="undoLastScoreAction()" disabled>
+                        <span>⟲</span>
+                        <span class="undo-btn-text">Undo</span>
+                    </button>
+                </div>
+
+                <div class="score-grid">
+                    <!-- Team 1 -->
+                    <div class="team-card">
+                        <div class="team-header">
+                            <div class="team-name-static">Des Moines Eclipse</div>
+                            <div class="team-score" id="team1-score">0</div>
+                        </div>
+                        <div class="score-stats">
+                            <div class="stat-item"><div class="stat-label">Kills</div><div class="stat-value" id="team1-kills">0</div></div>
+                            <div class="stat-item"><div class="stat-label">Blocks</div><div class="stat-value" id="team1-blocks">0</div></div>
+                            <div class="stat-item"><div class="stat-label">Serves</div><div class="stat-value" id="team1-serves">0</div></div>
+                            <div class="stat-item"><div class="stat-label">Errors</div><div class="stat-value" id="team1-errors">0</div></div>
+                        </div>
+                        <div class="scoring-buttons">
+                            <button class="score-btn serve" onclick="scorePoint(1, 'serve')">Serve</button>
+                            <button class="score-btn block" onclick="scorePoint(1, 'block')">Block</button>
+                            <button class="score-btn error" onclick="scorePoint(1, 'error')">Error</button>
+                            <!-- TODO: Re-evaluate whether to restore the Eclipse Kill button here. Currently hidden because kills are recorded via Attack Tracking to avoid double-counting. -->
+                            <button class="score-btn kill" onclick="scorePoint(1, 'kill')" style="display: none;">Kill</button>
+                        </div>
+                    </div>
+
+                    <!-- Team 2 -->
+                    <div class="team-card">
+                        <div class="team-header">
+                            <div class="team-name-static" id="team2-name">Opponent</div>
+                            <div class="team-score" id="team2-score">0</div>
+                        </div>
+                        <div class="score-stats">
+                            <div class="stat-item"><div class="stat-label">Kills</div><div class="stat-value" id="team2-kills">0</div></div>
+                            <div class="stat-item"><div class="stat-label">Blocks</div><div class="stat-value" id="team2-blocks">0</div></div>
+                            <div class="stat-item"><div class="stat-label">Serves</div><div class="stat-value" id="team2-serves">0</div></div>
+                            <div class="stat-item"><div class="stat-label">Errors</div><div class="stat-value" id="team2-errors">0</div></div>
+                        </div>
+                        <div class="scoring-buttons">
+                            <button class="score-btn serve" onclick="scorePoint(2, 'serve')">Serve</button>
+                            <button class="score-btn kill" onclick="scorePoint(2, 'kill')">Kill</button>
+                            <button class="score-btn error" onclick="scorePoint(2, 'error')">Error</button>
+                            <!-- TODO: Re-evaluate whether to restore the Opponent Block button here. Currently hidden because opponent blocks are recorded via Attack Tracking (player Block outcome) to avoid double-counting. -->
+                            <button class="score-btn block" onclick="scorePoint(2, 'block')" style="display: none;">Block</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ATTACK TRACKING -->
+            <div class="section">
+                <div class="section-header">
+                    <h2 class="section-title">Attack Tracking</h2>
+                    <button class="undo-btn" id="player-undo-btn" onclick="undoLastPlayerAction()" disabled>
+                        <span>⟲</span>
+                        <span class="undo-btn-text">Undo</span>
+                    </button>
+                </div>
+
+                <div class="player-grid">
+                    <div class="player-card" id="player-lexi">
+                        <button class="player-btn" onclick="selectPlayer('Lexi', 'player-lexi')">Lexi<div class="player-stats-mini" id="lexi-mini">0 Att • 0 K</div></button>
+                        <div class="player-outcomes" id="outcomes-lexi">
+                            <button class="outcome-btn-small kill-btn" onclick="recordOutcome('Lexi', 'kill', 'player-lexi')">Kill</button>
+                            <button class="outcome-btn-small error-btn" onclick="recordOutcome('Lexi', 'error', 'player-lexi')">Error</button>
+                            <button class="outcome-btn-small block-btn" onclick="recordOutcome('Lexi', 'block', 'player-lexi')">Block</button>
+                            <button class="outcome-btn-small inplay-btn" onclick="recordOutcome('Lexi', 'inplay', 'player-lexi')">In Play</button>
+                        </div>
+                    </div>
+                    <div class="player-card" id="player-anne">
+                        <button class="player-btn" onclick="selectPlayer('Anne', 'player-anne')">Anne<div class="player-stats-mini" id="anne-mini">0 Att • 0 K</div></button>
+                        <div class="player-outcomes" id="outcomes-anne">
+                            <button class="outcome-btn-small kill-btn" onclick="recordOutcome('Anne', 'kill', 'player-anne')">Kill</button>
+                            <button class="outcome-btn-small error-btn" onclick="recordOutcome('Anne', 'error', 'player-anne')">Error</button>
+                            <button class="outcome-btn-small block-btn" onclick="recordOutcome('Anne', 'block', 'player-anne')">Block</button>
+                            <button class="outcome-btn-small inplay-btn" onclick="recordOutcome('Anne', 'inplay', 'player-anne')">In Play</button>
+                        </div>
+                    </div>
+                    <div class="player-card" id="player-cora">
+                        <button class="player-btn" onclick="selectPlayer('Cora', 'player-cora')">Cora<div class="player-stats-mini" id="cora-mini">0 Att • 0 K</div></button>
+                        <div class="player-outcomes" id="outcomes-cora">
+                            <button class="outcome-btn-small kill-btn" onclick="recordOutcome('Cora', 'kill', 'player-cora')">Kill</button>
+                            <button class="outcome-btn-small error-btn" onclick="recordOutcome('Cora', 'error', 'player-cora')">Error</button>
+                            <button class="outcome-btn-small block-btn" onclick="recordOutcome('Cora', 'block', 'player-cora')">Block</button>
+                            <button class="outcome-btn-small inplay-btn" onclick="recordOutcome('Cora', 'inplay', 'player-cora')">In Play</button>
+                        </div>
+                    </div>
+                    <div class="player-card" id="player-amelie">
+                        <button class="player-btn" onclick="selectPlayer('Amelie', 'player-amelie')">Amelie<div class="player-stats-mini" id="amelie-mini">0 Att • 0 K</div></button>
+                        <div class="player-outcomes" id="outcomes-amelie">
+                            <button class="outcome-btn-small kill-btn" onclick="recordOutcome('Amelie', 'kill', 'player-amelie')">Kill</button>
+                            <button class="outcome-btn-small error-btn" onclick="recordOutcome('Amelie', 'error', 'player-amelie')">Error</button>
+                            <button class="outcome-btn-small block-btn" onclick="recordOutcome('Amelie', 'block', 'player-amelie')">Block</button>
+                            <button class="outcome-btn-small inplay-btn" onclick="recordOutcome('Amelie', 'inplay', 'player-amelie')">In Play</button>
+                        </div>
+                    </div>
+                    <div class="player-card" id="player-norah">
+                        <button class="player-btn" onclick="selectPlayer('Norah', 'player-norah')">Norah<div class="player-stats-mini" id="norah-mini">0 Att • 0 K</div></button>
+                        <div class="player-outcomes" id="outcomes-norah">
+                            <button class="outcome-btn-small kill-btn" onclick="recordOutcome('Norah', 'kill', 'player-norah')">Kill</button>
+                            <button class="outcome-btn-small error-btn" onclick="recordOutcome('Norah', 'error', 'player-norah')">Error</button>
+                            <button class="outcome-btn-small block-btn" onclick="recordOutcome('Norah', 'block', 'player-norah')">Block</button>
+                            <button class="outcome-btn-small inplay-btn" onclick="recordOutcome('Norah', 'inplay', 'player-norah')">In Play</button>
+                        </div>
+                    </div>
+                    <div class="player-card" id="player-grace">
+                        <button class="player-btn" onclick="selectPlayer('Grace', 'player-grace')">Grace<div class="player-stats-mini" id="grace-mini">0 Att • 0 K</div></button>
+                        <div class="player-outcomes" id="outcomes-grace">
+                            <button class="outcome-btn-small kill-btn" onclick="recordOutcome('Grace', 'kill', 'player-grace')">Kill</button>
+                            <button class="outcome-btn-small error-btn" onclick="recordOutcome('Grace', 'error', 'player-grace')">Error</button>
+                            <button class="outcome-btn-small block-btn" onclick="recordOutcome('Grace', 'block', 'player-grace')">Block</button>
+                            <button class="outcome-btn-small inplay-btn" onclick="recordOutcome('Grace', 'inplay', 'player-grace')">In Play</button>
+                        </div>
+                    </div>
+                    <div class="player-card" id="player-laura">
+                        <button class="player-btn" onclick="selectPlayer('Laura', 'player-laura')">Laura<div class="player-stats-mini" id="laura-mini">0 Att • 0 K</div></button>
+                        <div class="player-outcomes" id="outcomes-laura">
+                            <button class="outcome-btn-small kill-btn" onclick="recordOutcome('Laura', 'kill', 'player-laura')">Kill</button>
+                            <button class="outcome-btn-small error-btn" onclick="recordOutcome('Laura', 'error', 'player-laura')">Error</button>
+                            <button class="outcome-btn-small block-btn" onclick="recordOutcome('Laura', 'block', 'player-laura')">Block</button>
+                            <button class="outcome-btn-small inplay-btn" onclick="recordOutcome('Laura', 'inplay', 'player-laura')">In Play</button>
+                        </div>
+                    </div>
+                    <div class="player-card" id="player-lila">
+                        <button class="player-btn" onclick="selectPlayer('Lila', 'player-lila')">Lila<div class="player-stats-mini" id="lila-mini">0 Att • 0 K</div></button>
+                        <div class="player-outcomes" id="outcomes-lila">
+                            <button class="outcome-btn-small kill-btn" onclick="recordOutcome('Lila', 'kill', 'player-lila')">Kill</button>
+                            <button class="outcome-btn-small error-btn" onclick="recordOutcome('Lila', 'error', 'player-lila')">Error</button>
+                            <button class="outcome-btn-small block-btn" onclick="recordOutcome('Lila', 'block', 'player-lila')">Block</button>
+                            <button class="outcome-btn-small inplay-btn" onclick="recordOutcome('Lila', 'inplay', 'player-lila')">In Play</button>
+                        </div>
+                    </div>
+                    <div class="player-card" id="player-kjersten">
+                        <button class="player-btn" onclick="selectPlayer('Kjersten', 'player-kjersten')">Kjersten<div class="player-stats-mini" id="kjersten-mini">0 Att • 0 K</div></button>
+                        <div class="player-outcomes" id="outcomes-kjersten">
+                            <button class="outcome-btn-small kill-btn" onclick="recordOutcome('Kjersten', 'kill', 'player-kjersten')">Kill</button>
+                            <button class="outcome-btn-small error-btn" onclick="recordOutcome('Kjersten', 'error', 'player-kjersten')">Error</button>
+                            <button class="outcome-btn-small block-btn" onclick="recordOutcome('Kjersten', 'block', 'player-kjersten')">Block</button>
+                            <button class="outcome-btn-small inplay-btn" onclick="recordOutcome('Kjersten', 'inplay', 'player-kjersten')">In Play</button>
+                        </div>
+                    </div>
+                    <div class="player-card" id="player-adelaide">
+                        <button class="player-btn" onclick="selectPlayer('Adelaide', 'player-adelaide')">Adelaide<div class="player-stats-mini" id="adelaide-mini">0 Att • 0 K</div></button>
+                        <div class="player-outcomes" id="outcomes-adelaide">
+                            <button class="outcome-btn-small kill-btn" onclick="recordOutcome('Adelaide', 'kill', 'player-adelaide')">Kill</button>
+                            <button class="outcome-btn-small error-btn" onclick="recordOutcome('Adelaide', 'error', 'player-adelaide')">Error</button>
+                            <button class="outcome-btn-small block-btn" onclick="recordOutcome('Adelaide', 'block', 'player-adelaide')">Block</button>
+                            <button class="outcome-btn-small inplay-btn" onclick="recordOutcome('Adelaide', 'inplay', 'player-adelaide')">In Play</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="stats-table">
+                    <table>
+                        <thead>
+                            <tr><th>Player</th><th>Att</th><th>K</th><th>E</th><th>K%</th><th>Hit%</th></tr>
+                        </thead>
+                        <tbody id="stats-tbody">
+                            <tr><td class="player-name">Lexi</td><td id="lexi-att">0</td><td id="lexi-kills">0</td><td id="lexi-errors">0</td><td class="percentage" id="lexi-kpct">0%</td><td class="percentage" id="lexi-hitpct">0%</td></tr>
+                            <tr><td class="player-name">Anne</td><td id="anne-att">0</td><td id="anne-kills">0</td><td id="anne-errors">0</td><td class="percentage" id="anne-kpct">0%</td><td class="percentage" id="anne-hitpct">0%</td></tr>
+                            <tr><td class="player-name">Cora</td><td id="cora-att">0</td><td id="cora-kills">0</td><td id="cora-errors">0</td><td class="percentage" id="cora-kpct">0%</td><td class="percentage" id="cora-hitpct">0%</td></tr>
+                            <tr><td class="player-name">Amelie</td><td id="amelie-att">0</td><td id="amelie-kills">0</td><td id="amelie-errors">0</td><td class="percentage" id="amelie-kpct">0%</td><td class="percentage" id="amelie-hitpct">0%</td></tr>
+                            <tr><td class="player-name">Norah</td><td id="norah-att">0</td><td id="norah-kills">0</td><td id="norah-errors">0</td><td class="percentage" id="norah-kpct">0%</td><td class="percentage" id="norah-hitpct">0%</td></tr>
+                            <tr><td class="player-name">Grace</td><td id="grace-att">0</td><td id="grace-kills">0</td><td id="grace-errors">0</td><td class="percentage" id="grace-kpct">0%</td><td class="percentage" id="grace-hitpct">0%</td></tr>
+                            <tr><td class="player-name">Laura</td><td id="laura-att">0</td><td id="laura-kills">0</td><td id="laura-errors">0</td><td class="percentage" id="laura-kpct">0%</td><td class="percentage" id="laura-hitpct">0%</td></tr>
+                            <tr><td class="player-name">Lila</td><td id="lila-att">0</td><td id="lila-kills">0</td><td id="lila-errors">0</td><td class="percentage" id="lila-kpct">0%</td><td class="percentage" id="lila-hitpct">0%</td></tr>
+                            <tr><td class="player-name">Kjersten</td><td id="kjersten-att">0</td><td id="kjersten-kills">0</td><td id="kjersten-errors">0</td><td class="percentage" id="kjersten-kpct">0%</td><td class="percentage" id="kjersten-hitpct">0%</td></tr>
+                            <tr><td class="player-name">Adelaide</td><td id="adelaide-att">0</td><td id="adelaide-kills">0</td><td id="adelaide-errors">0</td><td class="percentage" id="adelaide-kpct">0%</td><td class="percentage" id="adelaide-hitpct">0%</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <div class="reset-section">
+            <button class="reset-btn" onclick="resetAllStats()">Reset and Delete Match</button>
+        </div>
+    </div>
+
+    <script>
+        // Register service worker
+        registerServiceWorker();
+
+        // Try to initialize Supabase (may be null if offline)
+        var db = tryInitSupabase();
+
+        // Get match ID from URL
+        var urlParams = new URLSearchParams(window.location.search);
+        var matchId = urlParams.get('matchId');
+
+        if (!matchId) {
+            alert('No match ID provided. Redirecting to home page.');
+            window.location.href = 'index.html';
+        }
+
+        // State management
+        var currentSet = 1;
+        var selectedPlayer = null;
+        var matchInfo = null;
+
+        // Undo history
+        var scoreUndoHistory = [];
+        var playerUndoHistory = [];
+        var MAX_UNDO_HISTORY = 5;
+
+        // Track which sets have had the save prompt dismissed
+        var setPromptDismissed = { 1: false, 2: false, 3: false };
+
+        // Initialize match data structure
+        var matchData = {
+            sets: {
+                1: { team1: { score: 0, kills: 0, blocks: 0, serves: 0, errors: 0 }, team2: { score: 0, kills: 0, blocks: 0, serves: 0, errors: 0 } },
+                2: { team1: { score: 0, kills: 0, blocks: 0, serves: 0, errors: 0 }, team2: { score: 0, kills: 0, blocks: 0, serves: 0, errors: 0 } },
+                3: { team1: { score: 0, kills: 0, blocks: 0, serves: 0, errors: 0 }, team2: { score: 0, kills: 0, blocks: 0, serves: 0, errors: 0 } }
+            },
+            savedSets: []
+        };
+
+        // Player stats (cumulative across match)
+        var playerStats = {
+            'Lexi': { attempts: 0, kills: 0, errors: 0 },
+            'Anne': { attempts: 0, kills: 0, errors: 0 },
+            'Cora': { attempts: 0, kills: 0, errors: 0 },
+            'Amelie': { attempts: 0, kills: 0, errors: 0 },
+            'Norah': { attempts: 0, kills: 0, errors: 0 },
+            'Grace': { attempts: 0, kills: 0, errors: 0 },
+            'Laura': { attempts: 0, kills: 0, errors: 0 },
+            'Lila': { attempts: 0, kills: 0, errors: 0 },
+            'Kjersten': { attempts: 0, kills: 0, errors: 0 },
+            'Adelaide': { attempts: 0, kills: 0, errors: 0 }
+        };
+
+        // ===== LOAD MATCH DATA (LOCAL-FIRST, SUPABASE FALLBACK) =====
+
+        async function loadMatchData() {
+            // Load match info from localStorage
+            matchInfo = OfflineStorage.getMatch(matchId);
+
+            // If not in localStorage, try loading from Supabase (for viewing completed matches from analytics)
+            if (!matchInfo && db) {
+                try {
+                    var { data: matchRow, error: matchErr } = await db
+                        .from('matches')
+                        .select('*')
+                        .eq('match_id', matchId)
+                        .single();
+
+                    if (!matchErr && matchRow) {
+                        matchInfo = {
+                            match_id: matchRow.match_id,
+                            tournament: matchRow.tournament,
+                            team1_name: matchRow.team1_name,
+                            opponent_name: matchRow.opponent_name,
+                            match_status: matchRow.match_status,
+                            sync_status: 'synced',
+                            created_at: matchRow.created_at
+                        };
+
+                        // Load sets from Supabase
+                        var { data: setRows } = await db
+                            .from('set_scores')
+                            .select('*')
+                            .eq('match_id', matchId)
+                            .order('set_number');
+
+                        if (setRows) {
+                            var setsObj = {};
+                            setRows.forEach(function(s) {
+                                setsObj[s.set_number] = {
+                                    set_status: s.set_status || 'completed',
+                                    team1_score: s.team1_score, team1_kills: s.team1_kills,
+                                    team1_blocks: s.team1_blocks, team1_serves: s.team1_serves,
+                                    team1_errors: s.team1_errors,
+                                    team2_score: s.team2_score, team2_kills: s.team2_kills,
+                                    team2_blocks: s.team2_blocks, team2_serves: s.team2_serves,
+                                    team2_errors: s.team2_errors
+                                };
+                            });
+                            OfflineStorage.saveSets(matchId, setsObj);
+                        }
+
+                        // Load player stats from Supabase
+                        var { data: playerRows } = await db
+                            .from('player_stats')
+                            .select('*')
+                            .eq('match_id', matchId);
+
+                        if (playerRows) {
+                            var statsObj = {};
+                            playerRows.forEach(function(p) {
+                                statsObj[p.player_name] = {
+                                    attempts: p.attempts,
+                                    kills: p.kills,
+                                    errors: p.errors
+                                };
+                            });
+                            OfflineStorage.saveAllPlayerStats(matchId, statsObj);
+                        }
+
+                        // Save match info locally (temporarily for viewing)
+                        OfflineStorage.saveMatch(matchInfo);
+                    }
+                } catch (err) {
+                    console.warn('Could not load match from Supabase:', err);
+                }
+            }
+
+            if (!matchInfo) {
+                alert('Match not found. Redirecting to home page.');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            document.getElementById('team2-name').textContent = matchInfo.opponent_name;
+
+            // Load sets from localStorage
+            var localSets = OfflineStorage.getSets(matchId);
+            var setNumbers = Object.keys(localSets);
+
+            if (setNumbers.length > 0) {
+                setNumbers.forEach(function(setNum) {
+                    var set = localSets[setNum];
+                    var n = parseInt(setNum);
+                    matchData.sets[n] = {
+                        team1: {
+                            score: set.team1_score || 0,
+                            kills: set.team1_kills || 0,
+                            blocks: set.team1_blocks || 0,
+                            serves: set.team1_serves || 0,
+                            errors: set.team1_errors || 0
+                        },
+                        team2: {
+                            score: set.team2_score || 0,
+                            kills: set.team2_kills || 0,
+                            blocks: set.team2_blocks || 0,
+                            serves: set.team2_serves || 0,
+                            errors: set.team2_errors || 0
+                        }
+                    };
+
+                    if (set.set_status === 'completed') {
+                        matchData.savedSets.push({
+                            setNum: n,
+                            team1Score: set.team1_score || 0,
+                            team2Score: set.team2_score || 0,
+                            team1Name: 'Des Moines Eclipse',
+                            team2Name: matchInfo.opponent_name
+                        });
+                    }
+                });
+
+                // Determine which set to display
+                var setToDisplay = 1;
+                for (var i = 1; i <= 3; i++) {
+                    var localSet = localSets[i];
+                    if (localSet && localSet.set_status === 'in_progress') {
+                        setToDisplay = i;
+                        break;
+                    }
+                    if (!localSet || localSet.set_status !== 'completed') {
+                        setToDisplay = i;
+                        break;
+                    }
+                }
+                if (matchData.savedSets.length === 3) {
+                    setToDisplay = 3;
+                }
+
+                currentSet = setToDisplay;
+                document.querySelectorAll('.set-badge').forEach(function(badge) {
+                    badge.classList.remove('active');
+                });
+                document.querySelector('[data-set="' + setToDisplay + '"]').classList.add('active');
+
+                displaySetHistory();
+            }
+
+            // Load player stats from localStorage
+            var localPlayerStats = OfflineStorage.getAllPlayerStats(matchId);
+            Object.keys(localPlayerStats).forEach(function(name) {
+                if (playerStats[name]) {
+                    playerStats[name] = {
+                        attempts: localPlayerStats[name].attempts || 0,
+                        kills: localPlayerStats[name].kills || 0,
+                        errors: localPlayerStats[name].errors || 0
+                    };
+                }
+            });
+
+            updateScoreDisplay();
+            updatePlayerStatsDisplay();
+
+            // Show banner if match is completed
+            if (matchInfo.match_status === 'completed') {
+                showCompletedMatchBanner();
+            }
+        }
+
+        function showCompletedMatchBanner() {
+            var banner = document.getElementById('completed-match-banner');
+            var backBtn = document.getElementById('back-to-analytics-btn');
+
+            var matchDate = new Date(matchInfo.created_at);
+            var formattedDate = (matchDate.getMonth() + 1) + '/' + matchDate.getDate() + '/' + matchDate.getFullYear();
+
+            banner.innerHTML = 'Viewing Completed Match - ' + formattedDate;
+            banner.className = 'completed-match-banner';
+            banner.style.display = 'block';
+
+            backBtn.style.display = 'inline-block';
+        }
+
+        function backToAnalytics() {
+            window.location.href = 'analyze-stats.html';
+        }
+
+        // ===== SET SWITCHING =====
+
+        document.querySelectorAll('.set-badge').forEach(function(badge) {
+            badge.addEventListener('click', function() {
+                var setNum = parseInt(this.dataset.set);
+                switchSet(setNum);
+            });
+        });
+
+        function switchSet(setNum) {
+            currentSet = setNum;
+            document.querySelectorAll('.set-badge').forEach(function(badge) {
+                badge.classList.remove('active');
+            });
+            document.querySelector('[data-set="' + setNum + '"]').classList.add('active');
+            updateScoreDisplay();
+        }
+
+        // ===== SCORE TRACKING =====
+
+        function scorePoint(team, method) {
+            var teamKey = 'team' + team;
+
+            addToScoreUndoHistory({
+                type: 'score',
+                team: team,
+                method: method,
+                setNumber: currentSet
+            });
+
+            matchData.sets[currentSet][teamKey].score++;
+
+            if (method === 'kill') matchData.sets[currentSet][teamKey].kills++;
+            else if (method === 'block') matchData.sets[currentSet][teamKey].blocks++;
+            else if (method === 'serve') matchData.sets[currentSet][teamKey].serves++;
+            else if (method === 'error') matchData.sets[currentSet][teamKey].errors++;
+
+            updateScoreDisplay();
+            autoSaveSet();
+            checkSetComplete();
+        }
+
+        function updateScoreDisplay() {
+            var set = matchData.sets[currentSet];
+
+            document.getElementById('team1-score').textContent = set.team1.score;
+            document.getElementById('team1-kills').textContent = set.team1.kills;
+            document.getElementById('team1-blocks').textContent = set.team1.blocks;
+            document.getElementById('team1-serves').textContent = set.team1.serves;
+            document.getElementById('team1-errors').textContent = set.team1.errors;
+
+            document.getElementById('team2-score').textContent = set.team2.score;
+            document.getElementById('team2-kills').textContent = set.team2.kills;
+            document.getElementById('team2-blocks').textContent = set.team2.blocks;
+            document.getElementById('team2-serves').textContent = set.team2.serves;
+            document.getElementById('team2-errors').textContent = set.team2.errors;
+        }
+
+        // ===== AUTO-SAVE SET (LOCAL-FIRST) =====
+
+        function autoSaveSet() {
+            var set = matchData.sets[currentSet];
+
+            var setData = {
+                set_status: 'in_progress',
+                team1_score: set.team1.score,
+                team1_kills: set.team1.kills,
+                team1_blocks: set.team1.blocks,
+                team1_serves: set.team1.serves,
+                team1_errors: set.team1.errors,
+                team2_score: set.team2.score,
+                team2_kills: set.team2.kills,
+                team2_blocks: set.team2.blocks,
+                team2_serves: set.team2.serves,
+                team2_errors: set.team2.errors
+            };
+
+            // Save to localStorage (always succeeds)
+            OfflineStorage.saveSet(matchId, currentSet, setData);
+
+            // Mark match as pending sync
+            OfflineStorage.markMatchPending(matchId);
+
+            // Try to sync to Supabase in the background
+            if (db) {
+                db.from('set_scores').upsert({
+                    match_id: matchId,
+                    set_number: currentSet,
+                    ...setData
+                }, { onConflict: 'match_id,set_number' }).select().then(function(result) {
+                    if (result.error) {
+                        console.warn('Auto-save to Supabase failed:', result.error);
+                    }
+                }).catch(function(err) {
+                    console.warn('Auto-save to Supabase exception:', err);
+                });
+            }
+        }
+
+        // ===== SET COMPLETION DETECTION =====
+
+        function checkSetComplete() {
+            var set = matchData.sets[currentSet];
+            var score1 = set.team1.score;
+            var score2 = set.team2.score;
+            var winScore = currentSet === 3 ? 15 : 25;
+            var leadBy2 = Math.abs(score1 - score2) >= 2;
+            var reachedTarget = score1 >= winScore || score2 >= winScore;
+
+            if (reachedTarget && leadBy2 && !setPromptDismissed[currentSet]) {
+                showSaveSetModal(score1, score2);
+            }
+        }
+
+        function showSaveSetModal(score1, score2) {
+            var overlay = document.createElement('div');
+            overlay.className = 'save-set-modal-overlay';
+            overlay.id = 'save-set-modal';
+            overlay.innerHTML = `
+                <div class="save-set-modal">
+                    <div class="save-set-modal-title">Set ${currentSet} Complete!</div>
+                    <div class="save-set-modal-score">${score1} - ${score2}</div>
+                    <div class="save-set-modal-buttons">
+                        <button class="save-set-modal-btn primary" onclick="confirmSaveSet()">Save Set</button>
+                        <button class="save-set-modal-btn secondary" onclick="dismissSaveSetModal()">Not Yet</button>
+                    </div>
+                </div>
+            `;
+            document.body.appendChild(overlay);
+        }
+
+        function confirmSaveSet() {
+            var modal = document.getElementById('save-set-modal');
+            if (modal) modal.remove();
+            saveSet();
+        }
+
+        function dismissSaveSetModal() {
+            setPromptDismissed[currentSet] = true;
+            var modal = document.getElementById('save-set-modal');
+            if (modal) modal.remove();
+        }
+
+        // ===== SAVE SET (LOCAL-FIRST) =====
+
+        function saveSet() {
+            var set = matchData.sets[currentSet];
+
+            var setData = {
+                set_status: 'completed',
+                team1_score: set.team1.score,
+                team1_kills: set.team1.kills,
+                team1_blocks: set.team1.blocks,
+                team1_serves: set.team1.serves,
+                team1_errors: set.team1.errors,
+                team2_score: set.team2.score,
+                team2_kills: set.team2.kills,
+                team2_blocks: set.team2.blocks,
+                team2_serves: set.team2.serves,
+                team2_errors: set.team2.errors
+            };
+
+            // Save to localStorage
+            OfflineStorage.saveSet(matchId, currentSet, setData);
+            OfflineStorage.markMatchPending(matchId);
+
+            // Try to sync to Supabase in the background
+            if (db) {
+                db.from('set_scores').upsert({
+                    match_id: matchId,
+                    set_number: currentSet,
+                    ...setData
+                }, { onConflict: 'match_id,set_number' }).select().then(function(result) {
+                    if (result.error) {
+                        console.warn('Save set to Supabase failed:', result.error);
+                    }
+                }).catch(function(err) {
+                    console.warn('Save set to Supabase exception:', err);
+                });
+            }
+
+            // Update saved sets array for display
+            var setInfo = {
+                setNum: currentSet,
+                team1Score: set.team1.score,
+                team2Score: set.team2.score,
+                team1Name: 'Des Moines Eclipse',
+                team2Name: matchInfo.opponent_name
+            };
+
+            var existingIndex = matchData.savedSets.findIndex(function(s) { return s.setNum === currentSet; });
+            if (existingIndex >= 0) {
+                matchData.savedSets[existingIndex] = setInfo;
+            } else {
+                matchData.savedSets.push(setInfo);
+            }
+
+            displaySetHistory();
+            clearScoreUndoHistory();
+            clearPlayerUndoHistory();
+
+            if (currentSet < 3) {
+                switchSet(currentSet + 1);
+            }
+        }
+
+        function displaySetHistory() {
+            var historyDiv = document.getElementById('set-history');
+            historyDiv.innerHTML = '';
+
+            matchData.savedSets.sort(function(a, b) { return a.setNum - b.setNum; }).forEach(function(set) {
+                var scoreDiv = document.createElement('div');
+                scoreDiv.className = 'set-score';
+                scoreDiv.textContent = 'Set ' + set.setNum + ': ' + set.team1Score + '-' + set.team2Score;
+                historyDiv.appendChild(scoreDiv);
+            });
+
+            var finishBtn = document.getElementById('finish-match-btn');
+            finishBtn.style.display = matchData.savedSets.length > 0 ? 'block' : 'none';
+        }
+
+        // ===== ATTACK TRACKING =====
+
+        var currentlyExpandedCard = null;
+
+        function selectPlayer(player, cardId) {
+            var card = document.getElementById(cardId);
+            if (currentlyExpandedCard && currentlyExpandedCard !== cardId) {
+                document.getElementById(currentlyExpandedCard).classList.remove('expanded');
+            }
+            card.classList.add('expanded');
+            currentlyExpandedCard = cardId;
+        }
+
+        function recordOutcome(player, outcome, cardId) {
+            var stats = playerStats[player];
+
+            addToPlayerUndoHistory({
+                type: 'player',
+                player: player,
+                outcome: outcome,
+                previousAttempts: stats.attempts,
+                previousKills: stats.kills,
+                previousErrors: stats.errors
+            });
+
+            stats.attempts++;
+            if (outcome === 'kill') {
+                stats.kills++;
+                scorePoint(1, 'kill');
+            } else if (outcome === 'error') {
+                stats.errors++;
+                scorePoint(2, 'error');
+            } else if (outcome === 'block') {
+                stats.errors++;
+                scorePoint(2, 'block');
+            }
+
+            // Save to localStorage
+            OfflineStorage.savePlayerStat(matchId, player, {
+                attempts: stats.attempts,
+                kills: stats.kills,
+                errors: stats.errors
+            });
+            OfflineStorage.markMatchPending(matchId);
+
+            // Try to sync to Supabase in the background
+            if (db) {
+                db.from('player_stats').upsert({
+                    match_id: matchId,
+                    player_name: player,
+                    team_name: 'Des Moines Eclipse',
+                    attempts: stats.attempts,
+                    kills: stats.kills,
+                    errors: stats.errors
+                }, { onConflict: 'match_id,player_name' }).select().then(function(result) {
+                    if (result.error) {
+                        console.warn('Save player stats to Supabase failed:', result.error);
+                    }
+                }).catch(function(err) {
+                    console.warn('Save player stats to Supabase exception:', err);
+                });
+            }
+
+            updatePlayerStatsDisplay();
+
+            var card = document.getElementById(cardId);
+            card.classList.remove('expanded');
+            currentlyExpandedCard = null;
+        }
+
+        function updatePlayerStatsDisplay() {
+            Object.keys(playerStats).forEach(function(player) {
+                var stats = playerStats[player];
+                var playerKey = player.toLowerCase();
+
+                document.getElementById(playerKey + '-att').textContent = stats.attempts;
+                document.getElementById(playerKey + '-kills').textContent = stats.kills;
+                document.getElementById(playerKey + '-errors').textContent = stats.errors;
+
+                var killPct = stats.attempts > 0 ? ((stats.kills / stats.attempts) * 100).toFixed(1) : 0;
+                var hitPct = stats.attempts > 0 ? (((stats.kills - stats.errors) / stats.attempts) * 100).toFixed(1) : 0;
+
+                document.getElementById(playerKey + '-kpct').textContent = killPct + '%';
+                document.getElementById(playerKey + '-hitpct').textContent = hitPct + '%';
+                document.getElementById(playerKey + '-mini').textContent = stats.attempts + ' Att \u2022 ' + stats.kills + ' K';
+            });
+        }
+
+        // ===== FINISH MATCH (LOCAL-FIRST) =====
+
+        function finishMatch() {
+            if (!confirm('Are you ready to finish this match? This will mark the match as completed and return you to the home page.')) {
+                return;
+            }
+
+            // Update match status locally
+            matchInfo.match_status = 'completed';
+            matchInfo.sync_status = 'pending';
+            OfflineStorage.saveMatch(matchInfo);
+
+            // Try to sync to Supabase in the background
+            if (db) {
+                OfflineStorage.syncMatchToSupabase(db, matchId).then(function(success) {
+                    if (success) {
+                        OfflineStorage.markMatchSynced(matchId);
+                    }
+                }).catch(function() {
+                    // Sync failed - that's OK
+                });
+            }
+
+            window.location.href = 'index.html';
+        }
+
+        // ===== RESET / DELETE MATCH =====
+
+        function resetAllStats() {
+            if (!confirm('Are you sure you want to clear stats? This will delete this match and all associated data. This action cannot be undone.')) {
+                return;
+            }
+
+            // Remove from localStorage
+            OfflineStorage.removeMatch(matchId);
+
+            // Try to delete from Supabase too
+            if (db) {
+                db.from('matches').delete().eq('match_id', matchId).then(function(result) {
+                    if (result.error) {
+                        console.warn('Delete from Supabase failed:', result.error);
+                    }
+                }).catch(function() {});
+            }
+
+            alert('Match deleted successfully.');
+            window.location.href = 'index.html';
+        }
+
+        // ===== SCORE UNDO =====
+
+        function addToScoreUndoHistory(action) {
+            scoreUndoHistory.push(action);
+            if (scoreUndoHistory.length > MAX_UNDO_HISTORY) scoreUndoHistory.shift();
+            updateScoreUndoButton();
+        }
+
+        function updateScoreUndoButton() {
+            document.getElementById('score-undo-btn').disabled = scoreUndoHistory.length === 0;
+        }
+
+        function clearScoreUndoHistory() {
+            scoreUndoHistory = [];
+            updateScoreUndoButton();
+        }
+
+        function undoLastScoreAction() {
+            if (scoreUndoHistory.length === 0) return;
+
+            var action = scoreUndoHistory.pop();
+            var teamKey = 'team' + action.team;
+            var set = matchData.sets[action.setNumber];
+
+            set[teamKey].score--;
+            if (action.method === 'kill') set[teamKey].kills--;
+            else if (action.method === 'block') set[teamKey].blocks--;
+            else if (action.method === 'serve') set[teamKey].serves--;
+            else if (action.method === 'error') set[teamKey].errors--;
+
+            updateScoreDisplay();
+            autoSaveSet();
+            updateScoreUndoButton();
+        }
+
+        // ===== PLAYER UNDO =====
+
+        function addToPlayerUndoHistory(action) {
+            playerUndoHistory.push(action);
+            if (playerUndoHistory.length > MAX_UNDO_HISTORY) playerUndoHistory.shift();
+            updatePlayerUndoButton();
+        }
+
+        function updatePlayerUndoButton() {
+            document.getElementById('player-undo-btn').disabled = playerUndoHistory.length === 0;
+        }
+
+        function clearPlayerUndoHistory() {
+            playerUndoHistory = [];
+            updatePlayerUndoButton();
+        }
+
+        function undoLastPlayerAction() {
+            if (playerUndoHistory.length === 0) return;
+
+            var action = playerUndoHistory.pop();
+            var stats = playerStats[action.player];
+
+            stats.attempts = action.previousAttempts;
+            stats.kills = action.previousKills;
+            stats.errors = action.previousErrors;
+
+            // Save to localStorage
+            OfflineStorage.savePlayerStat(matchId, action.player, {
+                attempts: stats.attempts,
+                kills: stats.kills,
+                errors: stats.errors
+            });
+            OfflineStorage.markMatchPending(matchId);
+
+            // Try to sync to Supabase
+            if (db) {
+                db.from('player_stats').upsert({
+                    match_id: matchId,
+                    player_name: action.player,
+                    team_name: 'Des Moines Eclipse',
+                    attempts: stats.attempts,
+                    kills: stats.kills,
+                    errors: stats.errors
+                }, { onConflict: 'match_id,player_name' }).select().catch(function() {});
+            }
+
+            updatePlayerStatsDisplay();
+            updatePlayerUndoButton();
+        }
+
+        // ===== INITIALIZE =====
+
+        window.addEventListener('DOMContentLoaded', function() {
+            loadMatchData();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,301 @@
+{
+  "database_name": "volleyball_stats",
+  "description": "Database schema for Des Moines Eclipse Volleyball Stat Tracker",
+  "tables": [
+    {
+      "table_name": "matches",
+      "description": "Main match records",
+      "columns": [
+        {
+          "name": "match_id",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "primary_key": true,
+          "default": "NOW()",
+          "description": "Unique identifier - timestamp when match was created (serves as both ID and match date)"
+        },
+        {
+          "name": "tournament",
+          "type": "TEXT",
+          "nullable": true,
+          "description": "Optional tournament name entered by user"
+        },
+        {
+          "name": "team1_name",
+          "type": "TEXT",
+          "nullable": false,
+          "default": "'Des Moines Eclipse'",
+          "description": "Always 'Des Moines Eclipse' (hardcoded for now)"
+        },
+        {
+          "name": "opponent_name",
+          "type": "TEXT",
+          "nullable": false,
+          "description": "Opponent team name entered by user"
+        },
+        {
+          "name": "match_status",
+          "type": "TEXT",
+          "nullable": false,
+          "default": "'in_progress'",
+          "check": "match_status IN ('in_progress', 'completed')",
+          "description": "Status: 'in_progress' or 'completed'. Changed to 'completed' when user clicks Finish Match"
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "default": "NOW()",
+          "description": "Record creation timestamp"
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "default": "NOW()",
+          "description": "Last update timestamp (auto-updated via trigger)"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_matches_status",
+          "columns": ["match_status"],
+          "description": "For filtering in-progress matches in Resume feature"
+        },
+        {
+          "name": "idx_matches_opponent",
+          "columns": ["opponent_name"],
+          "description": "For future analysis by opponent"
+        }
+      ]
+    },
+    {
+      "table_name": "set_scores",
+      "description": "Scores and stats for each completed/saved set within a match. Only created when user clicks 'Save Set'",
+      "columns": [
+        {
+          "name": "set_id",
+          "type": "UUID",
+          "primary_key": true,
+          "default": "gen_random_uuid()",
+          "description": "Unique identifier for this set record"
+        },
+        {
+          "name": "match_id",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "foreign_key": "matches(match_id)",
+          "on_delete": "CASCADE",
+          "nullable": false,
+          "description": "Reference to parent match (timestamp-based ID)"
+        },
+        {
+          "name": "set_number",
+          "type": "INTEGER",
+          "nullable": false,
+          "check": "set_number BETWEEN 1 AND 3",
+          "description": "Set number (1, 2, or 3)"
+        },
+        {
+          "name": "team1_score",
+          "type": "INTEGER",
+          "default": 0,
+          "nullable": false,
+          "description": "Des Moines Eclipse final score for this set"
+        },
+        {
+          "name": "team1_kills",
+          "type": "INTEGER",
+          "default": 0,
+          "nullable": false,
+          "description": "Des Moines Eclipse kills in this set"
+        },
+        {
+          "name": "team1_blocks",
+          "type": "INTEGER",
+          "default": 0,
+          "nullable": false,
+          "description": "Des Moines Eclipse blocks in this set"
+        },
+        {
+          "name": "team1_serves",
+          "type": "INTEGER",
+          "default": 0,
+          "nullable": false,
+          "description": "Des Moines Eclipse aces in this set"
+        },
+        {
+          "name": "team1_errors",
+          "type": "INTEGER",
+          "default": 0,
+          "nullable": false,
+          "description": "Des Moines Eclipse errors in this set"
+        },
+        {
+          "name": "team2_score",
+          "type": "INTEGER",
+          "default": 0,
+          "nullable": false,
+          "description": "Opponent final score for this set"
+        },
+        {
+          "name": "team2_kills",
+          "type": "INTEGER",
+          "default": 0,
+          "nullable": false,
+          "description": "Opponent kills in this set"
+        },
+        {
+          "name": "team2_blocks",
+          "type": "INTEGER",
+          "default": 0,
+          "nullable": false,
+          "description": "Opponent blocks in this set"
+        },
+        {
+          "name": "team2_serves",
+          "type": "INTEGER",
+          "default": 0,
+          "nullable": false,
+          "description": "Opponent aces in this set"
+        },
+        {
+          "name": "team2_errors",
+          "type": "INTEGER",
+          "default": 0,
+          "nullable": false,
+          "description": "Opponent errors in this set"
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "default": "NOW()",
+          "description": "When this set was saved"
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "default": "NOW()",
+          "description": "Last update timestamp"
+        }
+      ],
+      "unique_constraints": [
+        {
+          "name": "unique_match_set",
+          "columns": ["match_id", "set_number"],
+          "description": "Each match can only have one record per set number (prevents duplicate set 1, 2, or 3)"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_set_scores_match",
+          "columns": ["match_id"],
+          "description": "For querying all sets in a match"
+        }
+      ]
+    },
+    {
+      "table_name": "player_stats",
+      "description": "Individual player statistics accumulated across all sets in a match. Final totals only.",
+      "columns": [
+        {
+          "name": "stat_id",
+          "type": "UUID",
+          "primary_key": true,
+          "default": "gen_random_uuid()",
+          "description": "Unique identifier for this player stat record"
+        },
+        {
+          "name": "match_id",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "foreign_key": "matches(match_id)",
+          "on_delete": "CASCADE",
+          "nullable": false,
+          "description": "Reference to parent match (timestamp-based ID)"
+        },
+        {
+          "name": "player_name",
+          "type": "TEXT",
+          "nullable": false,
+          "description": "Player name (Lexi, Anne, Cora, Amelie, Norah, Grace, Laura, Lila, Kjersten, Adelaide)"
+        },
+        {
+          "name": "attempts",
+          "type": "INTEGER",
+          "default": 0,
+          "nullable": false,
+          "description": "Total attack attempts accumulated across all sets in the match"
+        },
+        {
+          "name": "kills",
+          "type": "INTEGER",
+          "default": 0,
+          "nullable": false,
+          "description": "Total kills accumulated across all sets in the match"
+        },
+        {
+          "name": "errors",
+          "type": "INTEGER",
+          "default": 0,
+          "nullable": false,
+          "description": "Total attack errors accumulated across all sets in the match"
+        },
+        {
+          "name": "created_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "default": "NOW()",
+          "description": "Record creation timestamp"
+        },
+        {
+          "name": "updated_at",
+          "type": "TIMESTAMP WITH TIME ZONE",
+          "default": "NOW()",
+          "description": "Last update timestamp (updated each time player records an attempt)"
+        }
+      ],
+      "unique_constraints": [
+        {
+          "name": "unique_match_player",
+          "columns": ["match_id", "player_name"],
+          "description": "Each player can only have one stats record per match"
+        }
+      ],
+      "indexes": [
+        {
+          "name": "idx_player_stats_match",
+          "columns": ["match_id"],
+          "description": "For querying all players in a match"
+        },
+        {
+          "name": "idx_player_stats_name",
+          "columns": ["player_name"],
+          "description": "For future analysis by player across matches"
+        }
+      ]
+    }
+  ],
+  "workflow_notes": [
+    "1. User creates new match → creates matches record with status='in_progress'",
+    "2. User tracks set → updates in-memory, clicks 'Save Set' → creates set_scores record",
+    "3. User tracks player attacks → continuously updates player_stats records via UPSERT",
+    "4. User clicks 'Finish Match' → updates match_status to 'completed', returns to main page",
+    "5. User clicks 'Reset and Delete Match' → deletes matches record (CASCADE deletes all sets and player stats)"
+  ],
+  "calculated_fields": [
+    {
+      "field": "Kill %",
+      "formula": "(kills / attempts) * 100",
+      "calculated": "client-side",
+      "not_stored": true
+    },
+    {
+      "field": "Hit %",
+      "formula": "((kills - errors) / attempts) * 100",
+      "calculated": "client-side",
+      "not_stored": true
+    }
+  ],
+  "future_enhancements": [
+    "Add team_id to matches table when multi-team support is added",
+    "Add team_name field to player_stats for multi-team support",
+    "Consider adding set-by-set player stats if detailed analysis is needed",
+    "May want to track match duration, final match score summary",
+    "May want to add 'deleted_at' for soft deletes instead of hard deletes"
+  ]
+}

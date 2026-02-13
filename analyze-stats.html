@@ -1,0 +1,1180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analyze Stats - Des Moines Eclipse</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#dc2626">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="offline-storage.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Barlow+Condensed:wght@400;500;600;700&display=swap');
+        
+        :root {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2a2a2a;
+            --bg-card: #3a3a3a;
+            --accent-primary: #dc2626;
+            --accent-secondary: #ef4444;
+            --accent-green: #10b981;
+            --text-primary: #f5f5f5;
+            --text-secondary: #9ca3af;
+            --border: #525252;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Barlow Condensed', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            animation: fadeIn 0.8s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .app-title {
+            font-family: 'Oswald', sans-serif;
+            font-size: 3.5rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-transform: uppercase;
+            margin-bottom: 10px;
+            animation: titleSlide 0.8s ease-out;
+        }
+        
+        @keyframes titleSlide {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .subtitle {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 1.8rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            letter-spacing: 1px;
+        }
+        
+        .back-btn {
+            display: inline-block;
+            font-family: 'Barlow Condensed', sans-serif;
+            padding: 12px 30px;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+            text-decoration: none;
+            margin-bottom: 30px;
+        }
+        
+        .back-btn:hover {
+            border-color: var(--accent-primary);
+            transform: scale(1.05);
+        }
+
+        .team-selector {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .team-btn {
+            font-family: 'Barlow Condensed', sans-serif;
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid var(--accent-primary);
+            background: transparent;
+            color: var(--accent-primary);
+        }
+
+        .team-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .team-btn.active {
+            background: var(--accent-primary);
+            color: var(--bg-primary);
+        }
+
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 30px;
+            animation: slideUp 0.8s ease-out 0.2s both;
+        }
+        
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(40px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .stat-card {
+            background: var(--bg-secondary);
+            border: 3px solid var(--border);
+            border-radius: 15px;
+            padding: 40px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .stat-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+        }
+        
+        .stat-title {
+            font-family: 'Oswald', sans-serif;
+            font-size: 1.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--accent-primary);
+            margin-bottom: 20px;
+        }
+        
+        .record-display {
+            text-align: center;
+            padding: 40px;
+            background: var(--bg-card);
+            border-radius: 10px;
+            border: 2px solid var(--border);
+        }
+        
+        .record-label {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 1.3rem;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-bottom: 15px;
+        }
+        
+        .record-value {
+            font-family: 'Oswald', sans-serif;
+            font-size: 5rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            letter-spacing: 3px;
+        }
+        
+        .record-wins {
+            color: var(--accent-green);
+        }
+        
+        .record-separator {
+            color: var(--text-secondary);
+            margin: 0 10px;
+        }
+        
+        .record-losses {
+            color: var(--accent-primary);
+        }
+        
+        .loading {
+            text-align: center;
+            padding: 60px;
+            color: var(--text-secondary);
+            font-size: 1.5rem;
+        }
+        
+        .error {
+            text-align: center;
+            padding: 40px;
+            color: var(--accent-primary);
+            font-size: 1.3rem;
+            background: var(--bg-card);
+            border-radius: 10px;
+            border: 2px solid var(--accent-primary);
+        }
+        
+        .spinner {
+            border: 4px solid var(--bg-card);
+            border-top: 4px solid var(--accent-primary);
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .match-table-wrapper {
+            overflow-x: auto;
+            margin-top: 20px;
+        }
+        
+        .match-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 800px;
+        }
+        
+        .match-table th {
+            background: var(--bg-primary);
+            padding: 15px;
+            text-align: left;
+            font-family: 'Oswald', sans-serif;
+            font-size: 1.1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--accent-primary);
+            border-bottom: 2px solid var(--border);
+        }
+        
+        .match-table th:nth-child(3),
+        .match-table th:nth-child(4),
+        .match-table th:nth-child(5) {
+            text-align: center;
+        }
+        
+        .match-table td {
+            padding: 12px 15px;
+            border-bottom: 1px solid var(--border);
+            font-size: 1rem;
+            color: var(--text-primary);
+            vertical-align: top;
+        }
+        
+        .match-table tr:hover {
+            background: rgba(220, 38, 38, 0.05);
+        }
+        
+        .tournament-date-cell {
+            font-family: 'Oswald', sans-serif;
+            vertical-align: top;
+        }
+        
+        .tournament-name {
+            color: var(--accent-secondary);
+            font-weight: 700;
+            display: block;
+            font-size: 1.1rem;
+            margin-bottom: 5px;
+        }
+        
+        .opponent-name {
+            color: var(--text-primary);
+            font-weight: 700;
+            display: block;
+            font-size: 1rem;
+            margin-bottom: 3px;
+        }
+
+        .match-date {
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            display: block;
+        }
+        
+        .set-label {
+            font-family: 'Oswald', sans-serif;
+            font-weight: 600;
+            font-size: 1rem;
+            color: var(--text-primary);
+        }
+        
+        .set-score {
+            font-family: 'Oswald', sans-serif;
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--accent-secondary);
+            text-align: center;
+        }
+        
+        .team-label {
+            font-weight: 700;
+            color: var(--accent-primary);
+        }
+        
+        .opponent-label {
+            font-weight: 700;
+            color: var(--text-secondary);
+        }
+        
+        .stat-line {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            text-align: center;
+        }
+        
+        .stat-item {
+            display: inline-block;
+            margin-right: 8px;
+            white-space: nowrap;
+        }
+        
+        .total-row {
+            background: var(--bg-card);
+            border-top: 3px solid var(--accent-primary) !important;
+            font-weight: 700;
+        }
+        
+        .total-row .set-label {
+            font-size: 1.2rem;
+            color: var(--accent-primary);
+        }
+        
+        .total-row .set-score {
+            font-size: 1.4rem;
+        }
+        
+        .total-row .stat-line {
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        
+        .match-separator {
+            height: 15px;
+            background: var(--bg-primary);
+        }
+        
+        .delete-column {
+            width: 60px;
+            text-align: center;
+        }
+        
+        .clickable-date {
+            cursor: pointer;
+            transition: color 0.3s ease;
+        }
+        
+        .clickable-date:hover {
+            color: var(--accent-primary);
+            text-decoration: underline;
+        }
+        
+        .no-matches {
+            text-align: center;
+            padding: 40px;
+            color: var(--text-secondary);
+            font-size: 1.2rem;
+        }
+        
+        .footer-notice {
+            text-align: center;
+            padding: 30px;
+            color: var(--text-secondary);
+            font-size: 1.1rem;
+            font-style: italic;
+        }
+        
+        /* Player Stats Table */
+        .player-stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        
+        .player-stats-table thead tr {
+            background: var(--bg-card);
+            border-bottom: 3px solid var(--accent-primary);
+        }
+        
+        .player-stats-table th {
+            padding: 15px;
+            text-align: left;
+            font-family: 'Oswald', sans-serif;
+            font-size: 1.1rem;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--accent-primary);
+            cursor: pointer;
+            user-select: none;
+            transition: color 0.2s;
+            white-space: nowrap;
+        }
+
+        .player-stats-table th:hover {
+            color: var(--accent-secondary);
+        }
+
+        .sort-arrow {
+            font-size: 0.75rem;
+            margin-left: 4px;
+            color: var(--text-secondary);
+            opacity: 0.4;
+        }
+
+        .sort-arrow.active {
+            color: var(--accent-secondary);
+            opacity: 1;
+        }
+        
+        .player-stats-table th:first-child {
+            text-align: left;
+        }
+        
+        .player-stats-table th:not(:first-child) {
+            text-align: center;
+        }
+        
+        .player-stats-table tbody tr {
+            border-bottom: 1px solid var(--border);
+            transition: background 0.2s;
+        }
+        
+        .player-stats-table tbody tr:hover {
+            background: rgba(220, 38, 38, 0.05);
+        }
+        
+        .player-stats-table td {
+            padding: 12px 15px;
+            font-size: 1.1rem;
+            font-weight: 500;
+        }
+        
+        .player-stats-table td:first-child {
+            font-family: 'Oswald', sans-serif;
+            font-weight: 700;
+            font-size: 1.2rem;
+            color: var(--text-primary);
+        }
+        
+        .player-stats-table td:not(:first-child) {
+            text-align: center;
+            color: var(--text-secondary);
+        }
+        
+        .player-stats-table .percentage {
+            font-family: 'Oswald', sans-serif;
+            font-weight: 700;
+            color: var(--accent-secondary);
+        }
+        
+        .no-player-stats {
+            text-align: center;
+            padding: 60px;
+            font-size: 1.3rem;
+            color: var(--text-secondary);
+        }
+        
+        /* Delete Button */
+        .delete-match-btn {
+            background: none;
+            border: none;
+            cursor: pointer;
+            font-size: 1.2rem;
+            padding: 5px;
+            margin-left: 10px;
+            opacity: 0.6;
+            transition: all 0.3s;
+            display: inline-block;
+            vertical-align: middle;
+        }
+        
+        .delete-match-btn:hover {
+            opacity: 1;
+            transform: scale(1.2);
+        }
+        
+        .tournament-date-cell {
+            position: relative;
+        }
+        
+        @media (max-width: 768px) {
+            .app-title {
+                font-size: 2.5rem;
+            }
+            
+            .subtitle {
+                font-size: 1.4rem;
+            }
+            
+            .record-value {
+                font-size: 3.5rem;
+            }
+            
+            .match-table {
+                font-size: 0.9rem;
+            }
+            
+            .match-table th,
+            .match-table td {
+                padding: 10px 8px;
+            }
+            
+            .player-stats-table {
+                font-size: 0.9rem;
+            }
+            
+            .player-stats-table th,
+            .player-stats-table td {
+                padding: 10px 8px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="app-title">Analyze Statistics</h1>
+        </div>
+
+        <a href="index.html" class="back-btn">← Back to Home</a>
+
+        <div id="team-selector" class="team-selector"></div>
+
+        <div class="stats-grid">
+            <div class="stat-card">
+                <h2 class="stat-title">Team Record</h2>
+                <div id="record-container">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading statistics...
+                    </div>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <h2 class="stat-title">Match History</h2>
+                <div id="match-history-container">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading match history...
+                    </div>
+                </div>
+            </div>
+            
+            <div class="stat-card">
+                <h2 class="stat-title">Player Statistics</h2>
+                <div id="player-stats-container">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading player statistics...
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="footer-notice">
+            ℹ️ This page is best viewed on a desktop or tablet
+        </div>
+    </div>
+    
+    <script>
+        // Register service worker
+        registerServiceWorker();
+
+        // Global database reference
+        var db = null;
+
+        // Player stats sort state
+        var currentPlayersData = [];
+        var playerSortColumn = 'hitPct';
+        var playerSortDirection = 'desc';
+
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', function() {
+            console.log('Page loaded, initializing...');
+
+            setTimeout(function() {
+                db = tryInitSupabase();
+
+                if (!db) {
+                    showError('Could not connect to database. Analyze Stats requires an internet connection.');
+                } else {
+                    console.log('Database initialized, loading stats...');
+                    loadTeamSelector();
+                    loadTeamRecord();
+                    loadMatchHistory();
+                    loadPlayerStats();
+                }
+            }, 500);
+        });
+        
+        async function loadTeamSelector() {
+            try {
+                const { data, error } = await db
+                    .from('matches')
+                    .select('team1_name')
+                    .not('team1_name', 'is', null);
+
+                if (error || !data || data.length === 0) return;
+
+                // Get unique team names
+                const teams = [...new Set(data.map(d => d.team1_name))].sort();
+
+                const container = document.getElementById('team-selector');
+                container.innerHTML = teams.map((team, i) =>
+                    `<button class="team-btn${i === 0 ? ' active' : ''}" onclick="selectTeam(this)">${team}</button>`
+                ).join('');
+            } catch (err) {
+                console.error('Error loading team selector:', err);
+            }
+        }
+
+        function selectTeam(btn) {
+            document.querySelectorAll('.team-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        }
+
+        async function loadTeamRecord() {
+            try {
+                console.log('Fetching team record...');
+                
+                // Get all completed matches
+                const { data: matches, error: matchError } = await db
+                    .from('matches')
+                    .select('match_id, opponent_name')
+                    .eq('match_status', 'completed');
+                
+                if (matchError) {
+                    console.error('Error fetching matches:', matchError);
+                    showError('Error loading matches: ' + matchError.message);
+                    return;
+                }
+                
+                console.log('Found completed matches:', matches);
+                
+                if (!matches || matches.length === 0) {
+                    displayRecord(0, 0);
+                    return;
+                }
+                
+                let totalWins = 0;
+                let totalLosses = 0;
+                
+                // For each match, get the set scores and calculate wins/losses
+                for (const match of matches) {
+                    const { data: sets, error: setError } = await db
+                        .from('set_scores')
+                        .select('set_number, team1_score, team2_score')
+                        .eq('match_id', match.match_id)
+                        .order('set_number');
+                    
+                    if (setError) {
+                        console.error('Error fetching sets for match:', match.match_id, setError);
+                        continue;
+                    }
+                    
+                    // Skip matches with no saved sets
+                    if (!sets || sets.length === 0) {
+                        console.log('Skipping match with no sets:', match.match_id);
+                        continue;
+                    }
+                    
+                    console.log(`Match vs ${match.opponent_name}:`, sets);
+                    
+                    // Count wins and losses for this match
+                    for (const set of sets) {
+                        if (set.team1_score > set.team2_score) {
+                            totalWins++;
+                            console.log(`  Set ${set.set_number}: WIN (${set.team1_score}-${set.team2_score})`);
+                        } else if (set.team2_score > set.team1_score) {
+                            totalLosses++;
+                            console.log(`  Set ${set.set_number}: LOSS (${set.team1_score}-${set.team2_score})`);
+                        }
+                        // If scores are tied, we don't count it as win or loss
+                    }
+                }
+                
+                console.log('Final record:', totalWins, '-', totalLosses);
+                displayRecord(totalWins, totalLosses);
+                
+            } catch (err) {
+                console.error('Unexpected error:', err);
+                showError('Unexpected error: ' + err.message);
+            }
+        }
+        
+        function displayRecord(wins, losses) {
+            const container = document.getElementById('record-container');
+            container.innerHTML = `
+                <div class="record-display">
+                    <div class="record-label">Season Record</div>
+                    <div class="record-value">
+                        <span class="record-wins">${wins}</span>
+                        <span class="record-separator">-</span>
+                        <span class="record-losses">${losses}</span>
+                    </div>
+                </div>
+            `;
+        }
+        
+        function showError(message) {
+            const container = document.getElementById('record-container');
+            container.innerHTML = `
+                <div class="error">
+                    ${message}
+                </div>
+            `;
+        }
+        
+        async function loadMatchHistory() {
+            try {
+                console.log('Fetching match history...');
+                
+                // Get all completed matches, ordered by most recent first
+                const { data: matches, error: matchError } = await db
+                    .from('matches')
+                    .select('match_id, opponent_name, tournament, created_at')
+                    .eq('match_status', 'completed')
+                    .order('created_at', { ascending: false });
+                
+                if (matchError) {
+                    console.error('Error fetching matches:', matchError);
+                    showMatchHistoryError('Error loading matches: ' + matchError.message);
+                    return;
+                }
+                
+                console.log('Found completed matches:', matches);
+                
+                if (!matches || matches.length === 0) {
+                    displayNoMatches();
+                    return;
+                }
+                
+                // Build match data with sets
+                const matchesWithSets = [];
+                
+                for (const match of matches) {
+                    const { data: sets, error: setError } = await db
+                        .from('set_scores')
+                        .select('*')
+                        .eq('match_id', match.match_id)
+                        .order('set_number');
+                    
+                    if (setError) {
+                        console.error('Error fetching sets:', setError);
+                        continue;
+                    }
+                    
+                    // Only include matches with at least 1 set
+                    if (sets && sets.length > 0) {
+                        matchesWithSets.push({
+                            ...match,
+                            sets: sets
+                        });
+                    }
+                }
+                
+                console.log('Matches with sets:', matchesWithSets);
+                displayMatchHistory(matchesWithSets);
+                
+            } catch (err) {
+                console.error('Unexpected error:', err);
+                showMatchHistoryError('Unexpected error: ' + err.message);
+            }
+        }
+        
+        function displayMatchHistory(matches) {
+            const container = document.getElementById('match-history-container');
+            
+            if (matches.length === 0) {
+                displayNoMatches();
+                return;
+            }
+            
+            let tableHTML = `
+                <div class="match-table-wrapper">
+                    <table class="match-table">
+                        <thead>
+                            <tr>
+                                <th>Match</th>
+                                <th>Set</th>
+                                <th>Score</th>
+                                <th>Eclipse</th>
+                                <th>Opponent</th>
+                                <th class="delete-column">Delete</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+            
+            matches.forEach((match, matchIndex) => {
+                // Format date from created_at timestamp
+                const matchDate = new Date(match.created_at);
+                const formattedDate = `${matchDate.getMonth() + 1}/${matchDate.getDate()}/${matchDate.getFullYear()}`;
+                
+                // Get sets (up to 3)
+                const sets = match.sets.sort((a, b) => a.set_number - b.set_number);
+                
+                // Calculate match totals
+                let eclipseTotalScore = 0, eclipseTotalKills = 0, eclipseTotalServes = 0, eclipseTotalBlocks = 0, eclipseTotalErrors = 0;
+                let opponentTotalScore = 0, opponentTotalKills = 0, opponentTotalServes = 0, opponentTotalBlocks = 0, opponentTotalErrors = 0;
+                
+                sets.forEach(set => {
+                    eclipseTotalScore += set.team1_score;
+                    eclipseTotalKills += set.team1_kills;
+                    eclipseTotalServes += set.team1_serves;
+                    eclipseTotalBlocks += set.team1_blocks;
+                    eclipseTotalErrors += set.team1_errors;
+                    
+                    opponentTotalScore += set.team2_score;
+                    opponentTotalKills += set.team2_kills;
+                    opponentTotalServes += set.team2_serves;
+                    opponentTotalBlocks += set.team2_blocks;
+                    opponentTotalErrors += set.team2_errors;
+                });
+                
+                // Number of rows for this match (sets + total row)
+                const numRows = sets.length + 1;
+                
+                // Tournament/Date cell content - make it clickable
+                const opponentDisplay = `<span class="opponent-name">vs ${match.opponent_name}</span>`;
+                const dateDisplay = `<span class="match-date clickable-date" onclick="viewMatch('${match.match_id}')" title="Click to view match details">${formattedDate}</span>`;
+                const tournamentDisplay = match.tournament
+                    ? `<span class="tournament-name">${match.tournament}</span><br>${opponentDisplay}<br>${dateDisplay}`
+                    : `${opponentDisplay}<br>${dateDisplay}`;
+                
+                // Delete button (appears on first row only)
+                const deleteButton = `<button class="delete-match-btn" onclick="deleteMatch('${match.match_id}')" title="Delete match">🗑️</button>`;
+                
+                // First row - Set 1
+                const firstSet = sets[0];
+                tableHTML += `
+                    <tr>
+                        <td class="tournament-date-cell" rowspan="${numRows}">${tournamentDisplay}</td>
+                        <td><span class="set-label">Set 1</span></td>
+                        <td class="set-score">${firstSet.team1_score}-${firstSet.team2_score}</td>
+                        <td class="stat-line"><span class="stat-item">K:${firstSet.team1_kills}</span><span class="stat-item">S:${firstSet.team1_serves}</span><span class="stat-item">B:${firstSet.team1_blocks}</span><span class="stat-item">E:${firstSet.team1_errors}</span></td>
+                        <td class="stat-line"><span class="stat-item">K:${firstSet.team2_kills}</span><span class="stat-item">S:${firstSet.team2_serves}</span><span class="stat-item">B:${firstSet.team2_blocks}</span><span class="stat-item">E:${firstSet.team2_errors}</span></td>
+                        <td class="delete-column" rowspan="${numRows}">${deleteButton}</td>
+                    </tr>
+                `;
+                
+                // Remaining sets (Set 2, Set 3 if they exist)
+                for (let i = 1; i < sets.length; i++) {
+                    const set = sets[i];
+                    tableHTML += `
+                        <tr>
+                            <td><span class="set-label">Set ${set.set_number}</span></td>
+                            <td class="set-score">${set.team1_score}-${set.team2_score}</td>
+                            <td class="stat-line"><span class="stat-item">K:${set.team1_kills}</span><span class="stat-item">S:${set.team1_serves}</span><span class="stat-item">B:${set.team1_blocks}</span><span class="stat-item">E:${set.team1_errors}</span></td>
+                            <td class="stat-line"><span class="stat-item">K:${set.team2_kills}</span><span class="stat-item">S:${set.team2_serves}</span><span class="stat-item">B:${set.team2_blocks}</span><span class="stat-item">E:${set.team2_errors}</span></td>
+                        </tr>
+                    `;
+                }
+                
+                // TOTAL row
+                tableHTML += `
+                    <tr class="total-row">
+                        <td><span class="set-label">TOTAL</span></td>
+                        <td class="set-score">${eclipseTotalScore}-${opponentTotalScore}</td>
+                        <td class="stat-line"><span class="stat-item">K:${eclipseTotalKills}</span><span class="stat-item">S:${eclipseTotalServes}</span><span class="stat-item">B:${eclipseTotalBlocks}</span><span class="stat-item">E:${eclipseTotalErrors}</span></td>
+                        <td class="stat-line"><span class="stat-item">K:${opponentTotalKills}</span><span class="stat-item">S:${opponentTotalServes}</span><span class="stat-item">B:${opponentTotalBlocks}</span><span class="stat-item">E:${opponentTotalErrors}</span></td>
+                    </tr>
+                `;
+                
+                // Add separator between matches (except last one)
+                if (matchIndex < matches.length - 1) {
+                    tableHTML += `<tr class="match-separator"><td colspan="6"></td></tr>`;
+                }
+            });
+            
+            tableHTML += `
+                        </tbody>
+                    </table>
+                </div>
+            `;
+            
+            container.innerHTML = tableHTML;
+        }
+        
+        function displayNoMatches() {
+            const container = document.getElementById('match-history-container');
+            container.innerHTML = `
+                <div class="no-matches">
+                    No completed matches found. Start tracking matches to see history here!
+                </div>
+            `;
+        }
+        
+        function showMatchHistoryError(message) {
+            const container = document.getElementById('match-history-container');
+            container.innerHTML = `
+                <div class="error">
+                    ${message}
+                </div>
+            `;
+        }
+        
+        async function loadPlayerStats() {
+            try {
+                console.log('Fetching player statistics...');
+                
+                // Get all player stats from all matches
+                const { data: allPlayerStats, error: statsError } = await db
+                    .from('player_stats')
+                    .select('player_name, attempts, kills, errors');
+                
+                if (statsError) {
+                    console.error('Error fetching player stats:', statsError);
+                    showPlayerStatsError('Error loading player statistics: ' + statsError.message);
+                    return;
+                }
+                
+                console.log('Raw player stats:', allPlayerStats);
+                
+                if (!allPlayerStats || allPlayerStats.length === 0) {
+                    displayNoPlayerStats();
+                    return;
+                }
+                
+                // Aggregate stats by player name
+                const playerTotals = {};
+                
+                allPlayerStats.forEach(stat => {
+                    if (!playerTotals[stat.player_name]) {
+                        playerTotals[stat.player_name] = {
+                            attempts: 0,
+                            kills: 0,
+                            errors: 0
+                        };
+                    }
+                    
+                    playerTotals[stat.player_name].attempts += stat.attempts;
+                    playerTotals[stat.player_name].kills += stat.kills;
+                    playerTotals[stat.player_name].errors += stat.errors;
+                });
+                
+                console.log('Aggregated player totals:', playerTotals);
+                
+                // Convert to array and calculate percentages
+                const playersArray = Object.keys(playerTotals).map(name => {
+                    const stats = playerTotals[name];
+                    const killPct = stats.attempts > 0 
+                        ? Math.round((stats.kills / stats.attempts) * 100)
+                        : 0;
+                    const hitPct = stats.attempts > 0 
+                        ? Math.round(((stats.kills - stats.errors) / stats.attempts) * 100)
+                        : 0;
+                    
+                    return {
+                        name: name,
+                        attempts: stats.attempts,
+                        kills: stats.kills,
+                        errors: stats.errors,
+                        killPct: killPct,
+                        hitPct: hitPct
+                    };
+                });
+                
+                // Store globally and sort/display
+                currentPlayersData = playersArray;
+                sortAndDisplayPlayers();
+                
+            } catch (err) {
+                console.error('Unexpected error:', err);
+                showPlayerStatsError('Unexpected error: ' + err.message);
+            }
+        }
+        
+        function sortArrowHTML(column) {
+            if (playerSortColumn === column) {
+                const arrow = playerSortDirection === 'asc' ? '▲' : '▼';
+                return `<span class="sort-arrow active">${arrow}</span>`;
+            }
+            return `<span class="sort-arrow">▲▼</span>`;
+        }
+
+        function sortPlayerStats(column) {
+            if (playerSortColumn === column) {
+                playerSortDirection = playerSortDirection === 'desc' ? 'asc' : 'desc';
+            } else {
+                playerSortColumn = column;
+                playerSortDirection = column === 'name' ? 'asc' : 'desc';
+            }
+            sortAndDisplayPlayers();
+        }
+
+        function sortAndDisplayPlayers() {
+            const sorted = [...currentPlayersData];
+            sorted.sort((a, b) => {
+                let valA = a[playerSortColumn];
+                let valB = b[playerSortColumn];
+                if (playerSortColumn === 'name') {
+                    valA = valA.toLowerCase();
+                    valB = valB.toLowerCase();
+                    return playerSortDirection === 'asc'
+                        ? valA.localeCompare(valB)
+                        : valB.localeCompare(valA);
+                }
+                return playerSortDirection === 'asc' ? valA - valB : valB - valA;
+            });
+            displayPlayerStats(sorted);
+        }
+
+        function displayPlayerStats(players) {
+            const container = document.getElementById('player-stats-container');
+
+            if (players.length === 0) {
+                displayNoPlayerStats();
+                return;
+            }
+
+            const columns = [
+                { key: 'name', label: 'Player Name' },
+                { key: 'attempts', label: 'Att' },
+                { key: 'kills', label: 'K' },
+                { key: 'errors', label: 'E' },
+                { key: 'killPct', label: 'K%' },
+                { key: 'hitPct', label: 'HIT%' }
+            ];
+
+            let tableHTML = `
+                <table class="player-stats-table">
+                    <thead>
+                        <tr>
+                            ${columns.map(col =>
+                                `<th onclick="sortPlayerStats('${col.key}')">${col.label}${sortArrowHTML(col.key)}</th>`
+                            ).join('')}
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+
+            players.forEach(player => {
+                const killPctDisplay = player.attempts > 0 ? `${player.killPct}%` : '-';
+                const hitPctDisplay = player.attempts > 0 ? `${player.hitPct}%` : '-';
+
+                tableHTML += `
+                    <tr>
+                        <td>${player.name}</td>
+                        <td>${player.attempts}</td>
+                        <td>${player.kills}</td>
+                        <td>${player.errors}</td>
+                        <td class="percentage">${killPctDisplay}</td>
+                        <td class="percentage">${hitPctDisplay}</td>
+                    </tr>
+                `;
+            });
+
+            tableHTML += `
+                    </tbody>
+                </table>
+            `;
+
+            container.innerHTML = tableHTML;
+        }
+        
+        function displayNoPlayerStats() {
+            const container = document.getElementById('player-stats-container');
+            container.innerHTML = `
+                <div class="no-player-stats">
+                    No player statistics found. Start tracking player attacks to see stats here!
+                </div>
+            `;
+        }
+        
+        function showPlayerStatsError(message) {
+            const container = document.getElementById('player-stats-container');
+            container.innerHTML = `
+                <div class="error">
+                    ${message}
+                </div>
+            `;
+        }
+        
+        async function deleteMatch(matchId) {
+            // Confirm deletion
+            const confirmed = confirm('Are you sure you want to delete this match?');
+            
+            if (!confirmed) {
+                return; // User cancelled
+            }
+            
+            try {
+                console.log('Deleting match:', matchId);
+                
+                // Delete the match (CASCADE will automatically delete related set_scores and player_stats)
+                const { error } = await db
+                    .from('matches')
+                    .delete()
+                    .eq('match_id', matchId);
+                
+                if (error) {
+                    console.error('Error deleting match:', error);
+                    alert('Error deleting match: ' + error.message);
+                    return;
+                }
+                
+                console.log('Match deleted successfully');
+                
+                // Reload all stats to reflect the deletion
+                loadTeamRecord();
+                loadMatchHistory();
+                loadPlayerStats();
+                
+            } catch (err) {
+                console.error('Unexpected error deleting match:', err);
+                alert('Unexpected error: ' + err.message);
+            }
+        }
+        
+        function viewMatch(matchId) {
+            // Navigate to volleyball-tracker page with the match ID
+            console.log('Viewing match:', matchId);
+            window.location.href = `volleyball-tracker.html?matchId=${encodeURIComponent(matchId)}`;
+        }
+    </script>
+</body>
+</html>

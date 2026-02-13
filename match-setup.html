@@ -1,0 +1,793 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Match Setup - Des Moines Eclipse</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#dc2626">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="offline-storage.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Barlow+Condensed:wght@400;500;600;700&display=swap');
+
+        :root {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2a2a2a;
+            --bg-card: #3a3a3a;
+            --accent-primary: #dc2626;
+            --accent-secondary: #ef4444;
+            --accent-green: #10b981;
+            --text-primary: #f5f5f5;
+            --text-secondary: #9ca3af;
+            --border: #525252;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Barlow Condensed', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 700px;
+            width: 100%;
+            margin: 0 auto;
+            padding: 20px;
+            animation: fadeIn 0.6s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .page-header {
+            text-align: center;
+            margin-bottom: 35px;
+        }
+
+        .page-title {
+            font-family: 'Oswald', sans-serif;
+            font-size: 2.5rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-transform: uppercase;
+            margin-bottom: 5px;
+        }
+
+        .page-subtitle {
+            font-size: 1.2rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .offline-notice {
+            background: #f97316;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 600;
+            text-align: center;
+            margin-bottom: 20px;
+            display: none;
+        }
+
+        /* Section styles */
+        .setup-section {
+            background: var(--bg-secondary);
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            padding: 25px;
+            margin-bottom: 20px;
+        }
+
+        .section-label {
+            font-family: 'Oswald', sans-serif;
+            font-size: 1.3rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--accent-primary);
+            margin-bottom: 15px;
+        }
+
+        /* Selectable card styles */
+        .card-grid {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .selectable-card {
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            padding: 14px 20px;
+            cursor: pointer;
+            transition: all 0.25s ease;
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 1.15rem;
+            font-weight: 600;
+            color: var(--text-primary);
+            user-select: none;
+        }
+
+        .selectable-card:hover {
+            border-color: var(--accent-primary);
+            background: #444;
+        }
+
+        .selectable-card.selected {
+            border-color: var(--accent-primary);
+            background: linear-gradient(135deg, rgba(220, 38, 38, 0.2), rgba(239, 68, 68, 0.15));
+            box-shadow: 0 0 15px rgba(220, 38, 38, 0.3);
+        }
+
+        .selectable-card.selected::before {
+            content: '\2713  ';
+            font-weight: 700;
+        }
+
+        /* New item button */
+        .new-item-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            background: transparent;
+            border: 2px dashed var(--border);
+            border-radius: 10px;
+            padding: 14px 20px;
+            cursor: pointer;
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            transition: all 0.25s ease;
+            margin-top: 10px;
+        }
+
+        .new-item-btn:hover {
+            border-color: var(--accent-primary);
+            color: var(--text-primary);
+        }
+
+        /* Inline new item input */
+        .new-item-inline {
+            display: none;
+            margin-top: 12px;
+            animation: slideOpen 0.3s ease-out;
+        }
+
+        .new-item-inline.visible {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        @keyframes slideOpen {
+            from { opacity: 0; transform: translateY(-8px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .new-item-input {
+            flex: 1;
+            padding: 12px 15px;
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 1.1rem;
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-primary);
+            transition: border-color 0.3s;
+        }
+
+        .new-item-input:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+        }
+
+        .new-item-confirm {
+            padding: 12px 20px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            border: none;
+            border-radius: 8px;
+            color: white;
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 1.05rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+
+        .new-item-confirm:hover {
+            transform: scale(1.05);
+            box-shadow: 0 4px 15px rgba(220, 38, 38, 0.4);
+        }
+
+        .new-item-cancel {
+            padding: 12px 16px;
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 1.05rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+
+        .new-item-cancel:hover {
+            border-color: var(--accent-primary);
+            color: var(--text-primary);
+        }
+
+        /* Optional label */
+        .optional-tag {
+            font-size: 0.9rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            text-transform: none;
+            letter-spacing: 0;
+        }
+
+        .no-items-msg {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            font-style: italic;
+            padding: 5px 0;
+        }
+
+        /* Loading spinner */
+        .loading-msg {
+            color: var(--text-secondary);
+            font-size: 1rem;
+            padding: 5px 0;
+        }
+
+        /* Bottom buttons */
+        .bottom-actions {
+            display: flex;
+            gap: 15px;
+            margin-top: 30px;
+            margin-bottom: 30px;
+        }
+
+        .btn-back {
+            flex: 0 0 auto;
+            padding: 16px 25px;
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            border-radius: 10px;
+            color: var(--text-primary);
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 1.15rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+        }
+
+        .btn-back:hover {
+            border-color: var(--accent-primary);
+            transform: scale(1.03);
+        }
+
+        .btn-start-match {
+            flex: 1;
+            padding: 16px 30px;
+            background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+            border: none;
+            border-radius: 10px;
+            color: white;
+            font-family: 'Oswald', sans-serif;
+            font-size: 1.4rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            transition: all 0.3s;
+        }
+
+        .btn-start-match:hover:not(:disabled) {
+            transform: scale(1.03);
+            box-shadow: 0 8px 30px rgba(220, 38, 38, 0.5);
+        }
+
+        .btn-start-match:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        /* Tournament clear selection */
+        .clear-selection-btn {
+            display: none;
+            background: transparent;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            padding: 6px 12px;
+            color: var(--text-secondary);
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            margin-left: auto;
+        }
+
+        .clear-selection-btn:hover {
+            border-color: var(--accent-primary);
+            color: var(--text-primary);
+        }
+
+        .section-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .section-header .section-label {
+            margin-bottom: 0;
+        }
+
+        @media (max-width: 768px) {
+            .page-title {
+                font-size: 2rem;
+            }
+
+            .setup-section {
+                padding: 18px;
+            }
+
+            .selectable-card {
+                padding: 12px 16px;
+                font-size: 1.05rem;
+            }
+
+            .new-item-inline.visible {
+                flex-wrap: wrap;
+            }
+
+            .new-item-input {
+                min-width: 100%;
+            }
+
+            .bottom-actions {
+                flex-direction: column-reverse;
+            }
+
+            .btn-start-match {
+                font-size: 1.2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="page-header">
+            <h1 class="page-title">Match Setup</h1>
+            <p class="page-subtitle">Configure your match details</p>
+        </div>
+
+        <div class="offline-notice" id="offline-notice">
+            Offline Mode — Match will be saved locally and synced when connected
+        </div>
+
+        <!-- Team Selection -->
+        <div class="setup-section">
+            <div class="section-label">Your Team</div>
+            <div class="card-grid" id="teamGrid">
+                <div class="selectable-card selected" data-team="Des Moines Eclipse" onclick="selectTeam(this)">Des Moines Eclipse</div>
+            </div>
+        </div>
+
+        <!-- Opponent Selection -->
+        <div class="setup-section">
+            <div class="section-label">Opponent</div>
+            <div class="card-grid" id="opponentGrid">
+                <div class="loading-msg" id="opponentLoading">Loading opponents...</div>
+            </div>
+            <button class="new-item-btn" id="newOpponentBtn" onclick="showNewOpponent()">+ New Opponent</button>
+            <div class="new-item-inline" id="newOpponentInline">
+                <input type="text" class="new-item-input" id="newOpponentInput" placeholder="Enter opponent name">
+                <button class="new-item-confirm" onclick="confirmNewOpponent()">Add</button>
+                <button class="new-item-cancel" onclick="cancelNewOpponent()">Cancel</button>
+            </div>
+        </div>
+
+        <!-- Tournament Selection -->
+        <div class="setup-section">
+            <div class="section-header">
+                <div class="section-label">Tournament <span class="optional-tag">(optional)</span></div>
+                <button class="clear-selection-btn" id="clearTournamentBtn" onclick="clearTournament()">Clear Selection</button>
+            </div>
+            <div class="card-grid" id="tournamentGrid">
+                <div class="loading-msg" id="tournamentLoading">Loading recent tournaments...</div>
+            </div>
+            <button class="new-item-btn" id="newTournamentBtn" onclick="showNewTournament()">+ New Tournament</button>
+            <div class="new-item-inline" id="newTournamentInline">
+                <input type="text" class="new-item-input" id="newTournamentInput" placeholder="Enter tournament name">
+                <button class="new-item-confirm" onclick="confirmNewTournament()">Add</button>
+                <button class="new-item-cancel" onclick="cancelNewTournament()">Cancel</button>
+            </div>
+        </div>
+
+        <!-- Bottom Actions -->
+        <div class="bottom-actions">
+            <button class="btn-back" onclick="window.location.href='index.html'">Back</button>
+            <button class="btn-start-match" id="startMatchBtn" onclick="startMatch()" disabled>Start Match</button>
+        </div>
+    </div>
+
+    <script>
+        // Register service worker
+        registerServiceWorker();
+
+        var db = null;
+        var selectedTeam = 'Des Moines Eclipse';
+        var selectedOpponent = null;
+        var selectedTournament = null;
+
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', function() {
+            // Try to init Supabase (may be null if offline)
+            db = tryInitSupabase();
+
+            // Show offline notice if not online
+            if (!OfflineStorage.isOnline()) {
+                document.getElementById('offline-notice').style.display = 'block';
+            }
+
+            // Load opponents and tournaments (from Supabase if online, from cache if offline)
+            loadOpponents();
+            loadTournaments();
+        });
+
+        // ===== OPPONENT LOADING =====
+        async function loadOpponents() {
+            var opponents = [];
+
+            // Try to load from Supabase if available
+            if (db) {
+                try {
+                    var { data, error } = await db
+                        .from('matches')
+                        .select('opponent_name');
+
+                    if (!error && data) {
+                        var seen = {};
+                        data.forEach(function(row) {
+                            var name = row.opponent_name;
+                            if (name && !seen[name]) {
+                                seen[name] = true;
+                                opponents.push(name);
+                            }
+                        });
+
+                        // Cache for offline use (always update so deleted matches clear stale cache)
+                        OfflineStorage.cacheOpponents(opponents);
+                    }
+                } catch (err) {
+                    console.warn('Could not load opponents from Supabase:', err);
+                }
+            }
+
+            // If we didn't get any from Supabase, use cache
+            if (opponents.length === 0) {
+                opponents = OfflineStorage.getCachedOpponents();
+            }
+
+            // Also merge in opponents from local matches
+            var localMatches = OfflineStorage.getAllMatches();
+            var localOpponents = {};
+            Object.keys(localMatches).forEach(function(id) {
+                var name = localMatches[id].opponent_name;
+                if (name) localOpponents[name] = true;
+            });
+            Object.keys(localOpponents).forEach(function(name) {
+                if (opponents.indexOf(name) === -1) {
+                    opponents.push(name);
+                }
+            });
+
+            opponents.sort();
+            renderOpponents(opponents);
+        }
+
+        function renderOpponents(opponents) {
+            var grid = document.getElementById('opponentGrid');
+            grid.innerHTML = '';
+
+            if (opponents.length === 0) {
+                grid.innerHTML = '<div class="no-items-msg">No previous opponents found. Add one below.</div>';
+                return;
+            }
+
+            opponents.forEach(function(name) {
+                var card = document.createElement('div');
+                card.className = 'selectable-card';
+                card.setAttribute('data-opponent', name);
+                card.textContent = name;
+                card.onclick = function() { selectOpponent(card); };
+                grid.appendChild(card);
+            });
+        }
+
+        function selectOpponent(card) {
+            var cards = document.querySelectorAll('#opponentGrid .selectable-card');
+            cards.forEach(function(c) { c.classList.remove('selected'); });
+
+            card.classList.add('selected');
+            selectedOpponent = card.getAttribute('data-opponent');
+
+            cancelNewOpponent();
+            updateStartButton();
+        }
+
+        function showNewOpponent() {
+            document.getElementById('newOpponentInline').classList.add('visible');
+            document.getElementById('newOpponentBtn').style.display = 'none';
+            document.getElementById('newOpponentInput').value = '';
+            document.getElementById('newOpponentInput').focus();
+        }
+
+        function cancelNewOpponent() {
+            document.getElementById('newOpponentInline').classList.remove('visible');
+            document.getElementById('newOpponentBtn').style.display = '';
+        }
+
+        function confirmNewOpponent() {
+            var input = document.getElementById('newOpponentInput');
+            var name = input.value.trim();
+            if (!name) {
+                alert('Please enter an opponent name');
+                return;
+            }
+
+            var existing = document.querySelector('#opponentGrid .selectable-card[data-opponent="' + CSS.escape(name) + '"]');
+            if (existing) {
+                selectOpponent(existing);
+                cancelNewOpponent();
+                return;
+            }
+
+            var noMsg = document.querySelector('#opponentGrid .no-items-msg');
+            if (noMsg) noMsg.remove();
+
+            var grid = document.getElementById('opponentGrid');
+            var card = document.createElement('div');
+            card.className = 'selectable-card';
+            card.setAttribute('data-opponent', name);
+            card.textContent = name;
+            card.onclick = function() { selectOpponent(card); };
+            grid.appendChild(card);
+
+            selectOpponent(card);
+            cancelNewOpponent();
+        }
+
+        // ===== TOURNAMENT LOADING =====
+        async function loadTournaments() {
+            var tournaments = [];
+
+            // Try to load from Supabase if available
+            if (db) {
+                try {
+                    var threeDaysAgo = new Date();
+                    threeDaysAgo.setDate(threeDaysAgo.getDate() - 3);
+                    threeDaysAgo.setHours(0, 0, 0, 0);
+                    var threeDaysAgoISO = threeDaysAgo.toISOString();
+
+                    var { data, error } = await db
+                        .from('matches')
+                        .select('tournament, created_at')
+                        .gte('created_at', threeDaysAgoISO);
+
+                    if (!error && data) {
+                        var seen = {};
+                        data.forEach(function(row) {
+                            var name = row.tournament;
+                            if (name && name.trim() !== '' && !seen[name]) {
+                                seen[name] = true;
+                                tournaments.push(name);
+                            }
+                        });
+
+                        // Cache for offline use (always update so deleted matches clear stale cache)
+                        OfflineStorage.cacheTournaments(tournaments);
+                    }
+                } catch (err) {
+                    console.warn('Could not load tournaments from Supabase:', err);
+                }
+            }
+
+            // If we didn't get any from Supabase, use cache
+            if (tournaments.length === 0) {
+                tournaments = OfflineStorage.getCachedTournaments();
+            }
+
+            // Also merge in tournaments from local matches
+            var localMatches = OfflineStorage.getAllMatches();
+            var localTournaments = {};
+            Object.keys(localMatches).forEach(function(id) {
+                var name = localMatches[id].tournament;
+                if (name && name.trim() !== '') localTournaments[name] = true;
+            });
+            Object.keys(localTournaments).forEach(function(name) {
+                if (tournaments.indexOf(name) === -1) {
+                    tournaments.push(name);
+                }
+            });
+
+            tournaments.sort();
+            renderTournaments(tournaments);
+        }
+
+        function renderTournaments(tournaments) {
+            var grid = document.getElementById('tournamentGrid');
+            grid.innerHTML = '';
+
+            if (tournaments.length === 0) {
+                grid.innerHTML = '<div class="no-items-msg">No recent tournaments. Add one below or skip.</div>';
+                return;
+            }
+
+            tournaments.forEach(function(name) {
+                var card = document.createElement('div');
+                card.className = 'selectable-card';
+                card.setAttribute('data-tournament', name);
+                card.textContent = name;
+                card.onclick = function() { selectTournament(card); };
+                grid.appendChild(card);
+            });
+        }
+
+        function selectTournament(card) {
+            var cards = document.querySelectorAll('#tournamentGrid .selectable-card');
+            cards.forEach(function(c) { c.classList.remove('selected'); });
+
+            card.classList.add('selected');
+            selectedTournament = card.getAttribute('data-tournament');
+
+            document.getElementById('clearTournamentBtn').style.display = 'inline-block';
+
+            cancelNewTournament();
+            updateStartButton();
+        }
+
+        function clearTournament() {
+            var cards = document.querySelectorAll('#tournamentGrid .selectable-card');
+            cards.forEach(function(c) { c.classList.remove('selected'); });
+            selectedTournament = null;
+            document.getElementById('clearTournamentBtn').style.display = 'none';
+        }
+
+        function showNewTournament() {
+            document.getElementById('newTournamentInline').classList.add('visible');
+            document.getElementById('newTournamentBtn').style.display = 'none';
+            document.getElementById('newTournamentInput').value = '';
+            document.getElementById('newTournamentInput').focus();
+        }
+
+        function cancelNewTournament() {
+            document.getElementById('newTournamentInline').classList.remove('visible');
+            document.getElementById('newTournamentBtn').style.display = '';
+        }
+
+        function confirmNewTournament() {
+            var input = document.getElementById('newTournamentInput');
+            var name = input.value.trim();
+            if (!name) {
+                alert('Please enter a tournament name');
+                return;
+            }
+
+            var existing = document.querySelector('#tournamentGrid .selectable-card[data-tournament="' + CSS.escape(name) + '"]');
+            if (existing) {
+                selectTournament(existing);
+                cancelNewTournament();
+                return;
+            }
+
+            var noMsg = document.querySelector('#tournamentGrid .no-items-msg');
+            if (noMsg) noMsg.remove();
+
+            var grid = document.getElementById('tournamentGrid');
+            var card = document.createElement('div');
+            card.className = 'selectable-card';
+            card.setAttribute('data-tournament', name);
+            card.textContent = name;
+            card.onclick = function() { selectTournament(card); };
+            grid.appendChild(card);
+
+            selectTournament(card);
+            cancelNewTournament();
+        }
+
+        // ===== TEAM SELECTION =====
+        function selectTeam(card) {
+            var cards = document.querySelectorAll('#teamGrid .selectable-card');
+            cards.forEach(function(c) { c.classList.remove('selected'); });
+            card.classList.add('selected');
+            selectedTeam = card.getAttribute('data-team');
+            updateStartButton();
+        }
+
+        // ===== START MATCH BUTTON STATE =====
+        function updateStartButton() {
+            var btn = document.getElementById('startMatchBtn');
+            btn.disabled = !(selectedTeam && selectedOpponent);
+        }
+
+        // ===== START MATCH (LOCAL-FIRST) =====
+        function startMatch() {
+            if (!selectedTeam || !selectedOpponent) return;
+
+            var btn = document.getElementById('startMatchBtn');
+            btn.disabled = true;
+            btn.textContent = 'Creating Match...';
+
+            // Generate UUID locally
+            var matchId = OfflineStorage.generateUUID();
+            var now = new Date().toISOString();
+
+            // Create match object
+            var match = {
+                match_id: matchId,
+                tournament: selectedTournament || null,
+                team1_name: selectedTeam,
+                opponent_name: selectedOpponent,
+                match_status: 'in_progress',
+                sync_status: 'pending',
+                created_at: now
+            };
+
+            // Save to localStorage
+            OfflineStorage.saveMatch(match);
+
+            // Try to sync to Supabase in the background (fire and forget)
+            if (db) {
+                OfflineStorage.syncMatchToSupabase(db, matchId).then(function(success) {
+                    if (success) {
+                        OfflineStorage.markMatchSynced(matchId);
+                    }
+                }).catch(function() {
+                    // Sync failed - that's OK, it's saved locally
+                });
+            }
+
+            // Navigate to tracker immediately (don't wait for sync)
+            window.location.href = 'volleyball-tracker.html?matchId=' + encodeURIComponent(matchId);
+        }
+
+        // Enter key support for inline inputs
+        document.getElementById('newOpponentInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') confirmNewOpponent();
+        });
+        document.getElementById('newTournamentInput').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') confirmNewTournament();
+        });
+    </script>
+</body>
+</html>

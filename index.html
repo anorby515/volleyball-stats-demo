@@ -1,0 +1,655 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Des Moines Eclipse Stat Tracker</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#dc2626">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="config.js"></script>
+    <script src="offline-storage.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Barlow+Condensed:wght@400;500;600;700&display=swap');
+
+        :root {
+            --bg-primary: #1a1a1a;
+            --bg-secondary: #2a2a2a;
+            --bg-card: #3a3a3a;
+            --accent-primary: #dc2626;
+            --accent-secondary: #ef4444;
+            --accent-green: #10b981;
+            --text-primary: #f5f5f5;
+            --text-secondary: #9ca3af;
+            --border: #525252;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Barlow Condensed', sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            overflow-x: hidden;
+        }
+
+        /* Sync Status Bar */
+        .sync-status-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 8px 16px;
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 0.95rem;
+            font-weight: 600;
+            text-align: center;
+            z-index: 1000;
+            transition: all 0.3s ease;
+        }
+
+        .sync-status-bar.online-synced {
+            background: var(--accent-green);
+            color: white;
+        }
+
+        .sync-status-bar.online-syncing {
+            background: #f59e0b;
+            color: #1a1a1a;
+        }
+
+        .sync-status-bar.online-failed {
+            background: #f59e0b;
+            color: #1a1a1a;
+        }
+
+        .sync-status-bar.offline {
+            background: #f97316;
+            color: white;
+        }
+
+        .sync-status-bar.offline-warning {
+            background: #ef4444;
+            color: white;
+        }
+
+        .sync-status-bar.hidden {
+            transform: translateY(-100%);
+            opacity: 0;
+        }
+
+        .container {
+            max-width: 800px;
+            width: 100%;
+            padding: 20px;
+            padding-top: 50px;
+            text-align: center;
+            animation: fadeIn 0.8s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .app-title {
+            font-family: 'Oswald', sans-serif;
+            font-size: 3.5rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            background: linear-gradient(135deg, var(--accent-primary) 0%, var(--accent-secondary) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            text-transform: uppercase;
+            margin-bottom: 15px;
+            animation: titleSlide 0.8s ease-out;
+        }
+
+        @keyframes titleSlide {
+            from {
+                opacity: 0;
+                transform: translateY(-20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .subtitle {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 1.8rem;
+            font-weight: 500;
+            color: var(--text-secondary);
+            margin-bottom: 60px;
+            letter-spacing: 1px;
+        }
+
+        .options-grid {
+            display: grid;
+            gap: 25px;
+            max-width: 600px;
+            margin: 0 auto;
+            animation: slideUp 0.8s ease-out 0.2s both;
+        }
+
+        @keyframes slideUp {
+            from {
+                opacity: 0;
+                transform: translateY(40px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .option-card {
+            background: var(--bg-secondary);
+            border: 3px solid var(--border);
+            border-radius: 15px;
+            padding: 40px 30px;
+            cursor: pointer;
+            transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .option-card::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 5px;
+            background: linear-gradient(90deg, var(--accent-primary), var(--accent-secondary));
+            transform: scaleX(0);
+            transform-origin: left;
+            transition: transform 0.4s ease;
+        }
+
+        .option-card:hover::before {
+            transform: scaleX(1);
+        }
+
+        .option-card:hover {
+            border-color: var(--accent-primary);
+            transform: translateY(-8px) scale(1.02);
+            box-shadow: 0 15px 40px rgba(220, 38, 38, 0.3);
+            background: var(--bg-card);
+        }
+
+        .option-card:active {
+            transform: translateY(-4px) scale(1.01);
+        }
+
+        .option-icon {
+            font-size: 3rem;
+            margin-bottom: 15px;
+            display: inline-block;
+            transition: transform 0.3s ease;
+        }
+
+        .option-card:hover .option-icon {
+            transform: scale(1.1) rotate(5deg);
+        }
+
+        .option-title {
+            font-family: 'Oswald', sans-serif;
+            font-size: 2rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            color: var(--text-primary);
+            margin-bottom: 10px;
+        }
+
+        .option-description {
+            font-size: 1.1rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .coming-soon {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .coming-soon:hover {
+            transform: none;
+            border-color: var(--border);
+            box-shadow: none;
+            background: var(--bg-secondary);
+        }
+
+        .coming-soon::before {
+            display: none;
+        }
+
+        .option-card.disabled-offline {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .option-card.disabled-offline:hover {
+            transform: none;
+            border-color: var(--border);
+            box-shadow: none;
+            background: var(--bg-secondary);
+        }
+
+        .option-card.disabled-offline::before {
+            display: none;
+        }
+
+        .badge {
+            display: inline-block;
+            background: var(--accent-primary);
+            color: white;
+            padding: 5px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-top: 10px;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            color: var(--text-secondary);
+            margin-top: 15px;
+        }
+
+        .resume-match-btn {
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+            cursor: pointer;
+            transition: all 0.3s;
+            text-align: left;
+            width: 100%;
+        }
+
+        .resume-match-btn:hover {
+            border-color: var(--accent-primary);
+            background: var(--bg-secondary);
+            transform: translateX(5px);
+        }
+
+        .resume-match-teams {
+            font-family: 'Oswald', sans-serif;
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--text-primary);
+            margin-bottom: 5px;
+            letter-spacing: 0.5px;
+        }
+
+        .resume-match-time {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            font-weight: 500;
+        }
+
+        .resume-match-sync-badge {
+            display: inline-block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            padding: 2px 8px;
+            border-radius: 4px;
+            margin-left: 8px;
+            vertical-align: middle;
+        }
+
+        .resume-match-sync-badge.pending {
+            background: #f97316;
+            color: white;
+        }
+
+        @media (max-width: 768px) {
+            .app-title {
+                font-size: 2.5rem;
+            }
+
+            .subtitle {
+                font-size: 1.4rem;
+            }
+
+            .option-title {
+                font-size: 1.6rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Sync Status Bar -->
+    <div class="sync-status-bar hidden" id="sync-status-bar"></div>
+
+    <div class="container">
+        <h1 class="app-title">Des Moines Eclipse Stat Tracker</h1>
+        <p class="subtitle">What would you like to do today?</p>
+
+        <div class="options-grid">
+            <div class="option-card" onclick="startNewMatch()">
+                <div class="option-icon">🏐</div>
+                <div class="option-title">Start a New Match</div>
+                <div class="option-description">Begin tracking a new volleyball match</div>
+            </div>
+
+            <!-- Resume a Match - dynamically populated -->
+            <div id="resume-match-container" style="display: none;">
+                <div class="option-card" style="cursor: default; padding: 20px;">
+                    <div class="option-icon">📋</div>
+                    <div class="option-title">Resume a Match</div>
+                    <div class="option-description" style="margin-bottom: 20px;">Continue tracking an in-progress match</div>
+                    <div id="resume-matches-list"></div>
+                </div>
+            </div>
+
+            <div class="option-card" id="analyze-stats-card" onclick="goToAnalyzeStats()">
+                <div class="option-icon">📊</div>
+                <div class="option-title">Analyze Stats</div>
+                <div class="option-description" id="analyze-stats-desc">View and analyze match statistics</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Register service worker
+        registerServiceWorker();
+
+        var db = null;
+        var syncInProgress = false;
+
+        // Initialize on page load
+        window.addEventListener('DOMContentLoaded', function() {
+            // Try to initialize Supabase (may be null if offline)
+            db = tryInitSupabase();
+
+            // Always load local in-progress matches (works offline)
+            loadLocalInProgressMatches();
+
+            // Update sync status bar and analyze stats button
+            updateSyncStatus();
+            updateAnalyzeStatsButton();
+
+            // Try to sync if online
+            if (db && OfflineStorage.isOnline()) {
+                attemptSync();
+            }
+        });
+
+        // Listen for online/offline events
+        window.addEventListener('online', function() {
+            console.log('Connection restored');
+            // Re-init Supabase if needed
+            if (!db) {
+                db = tryInitSupabase();
+            }
+            if (db) {
+                attemptSync();
+            }
+            updateSyncStatus();
+            updateAnalyzeStatsButton();
+        });
+
+        window.addEventListener('offline', function() {
+            console.log('Connection lost');
+            updateSyncStatus();
+            updateAnalyzeStatsButton();
+        });
+
+        // ===== SYNC STATUS BAR =====
+
+        function updateSyncStatus() {
+            var bar = document.getElementById('sync-status-bar');
+            var pending = OfflineStorage.getPendingMatches();
+            var lastSync = OfflineStorage.getLastSyncTime();
+            var online = OfflineStorage.isOnline();
+
+            if (syncInProgress) {
+                bar.className = 'sync-status-bar online-syncing';
+                bar.textContent = 'Syncing...';
+                return;
+            }
+
+            if (online && pending.length === 0) {
+                // Online and everything synced
+                if (lastSync) {
+                    var lastSyncDate = new Date(lastSync);
+                    var timeAgo = getTimeAgo(lastSyncDate);
+                    bar.className = 'sync-status-bar online-synced';
+                    bar.textContent = 'Online — Last synced: ' + timeAgo;
+                } else {
+                    bar.className = 'sync-status-bar online-synced';
+                    bar.textContent = 'Online';
+                }
+                // Auto-hide after 5 seconds if all good
+                setTimeout(function() {
+                    if (!syncInProgress && OfflineStorage.getPendingMatches().length === 0) {
+                        bar.classList.add('hidden');
+                    }
+                }, 5000);
+                return;
+            }
+
+            if (online && pending.length > 0) {
+                bar.className = 'sync-status-bar online-failed';
+                bar.textContent = 'Online — ' + pending.length + ' match(es) waiting to sync';
+                return;
+            }
+
+            // Offline
+            if (!online) {
+                var daysSinceSync = getDaysSinceSync();
+
+                if (daysSinceSync === null) {
+                    bar.className = 'sync-status-bar offline';
+                    bar.textContent = 'Offline — Not yet synced. Connect to internet to save your data.';
+                } else if (daysSinceSync >= 5) {
+                    bar.className = 'sync-status-bar offline-warning';
+                    bar.textContent = 'Offline — Last synced: ' + Math.floor(daysSinceSync) + ' days ago. Data may be lost if not synced.';
+                } else if (daysSinceSync >= 3) {
+                    bar.className = 'sync-status-bar offline';
+                    bar.textContent = 'Offline — Last synced: ' + Math.floor(daysSinceSync) + ' days ago. Connect to sync soon.';
+                } else {
+                    var lastSyncTime = new Date(OfflineStorage.getLastSyncTime());
+                    bar.className = 'sync-status-bar offline';
+                    bar.textContent = 'Offline — Last synced: ' + getTimeAgo(lastSyncTime);
+                }
+            }
+        }
+
+        function getTimeAgo(date) {
+            var now = new Date();
+            var diffMs = now - date;
+            var diffMins = Math.floor(diffMs / 60000);
+            var diffHours = Math.floor(diffMs / 3600000);
+            var diffDays = Math.floor(diffMs / 86400000);
+
+            if (diffMins < 1) return 'just now';
+            if (diffMins < 60) return diffMins + ' minute' + (diffMins !== 1 ? 's' : '') + ' ago';
+            if (diffHours < 24) return diffHours + ' hour' + (diffHours !== 1 ? 's' : '') + ' ago';
+            return diffDays + ' day' + (diffDays !== 1 ? 's' : '') + ' ago';
+        }
+
+        function getDaysSinceSync() {
+            var lastSync = OfflineStorage.getLastSyncTime();
+            if (!lastSync) return null;
+            var diffMs = new Date() - new Date(lastSync);
+            return diffMs / 86400000;
+        }
+
+        // ===== AUTO SYNC =====
+
+        async function attemptSync() {
+            if (syncInProgress) return;
+            if (!db) return;
+
+            var pending = OfflineStorage.getPendingMatches();
+            if (pending.length === 0) {
+                updateSyncStatus();
+                return;
+            }
+
+            syncInProgress = true;
+            updateSyncStatus();
+
+            try {
+                var result = await OfflineStorage.syncAllPending(db);
+                console.log('Sync result:', result);
+            } catch (err) {
+                console.error('Sync error:', err);
+            }
+
+            syncInProgress = false;
+            updateSyncStatus();
+
+            // Refresh the resume list in case synced+completed matches were removed
+            loadLocalInProgressMatches();
+        }
+
+        // ===== LOAD IN-PROGRESS MATCHES FROM LOCAL STORAGE =====
+
+        function loadLocalInProgressMatches() {
+            var matches = OfflineStorage.getInProgressMatches();
+
+            if (matches.length === 0) {
+                document.getElementById('resume-match-container').style.display = 'none';
+                return;
+            }
+
+            // For each match, load set data to show current score
+            var matchesWithSets = matches.map(function(match) {
+                var sets = OfflineStorage.getSets(match.match_id);
+                var currentSetNumber = 1;
+                var currentSet = null;
+
+                // Find the current set (first non-completed, or in-progress)
+                for (var i = 1; i <= 3; i++) {
+                    var set = sets[i];
+                    if (set && set.set_status === 'in_progress') {
+                        currentSetNumber = i;
+                        currentSet = set;
+                        break;
+                    }
+                    if (!set || set.set_status !== 'completed') {
+                        currentSetNumber = i;
+                        currentSet = set || null;
+                        break;
+                    }
+                }
+
+                return {
+                    match_id: match.match_id,
+                    team1_name: match.team1_name,
+                    opponent_name: match.opponent_name,
+                    created_at: match.created_at,
+                    sync_status: match.sync_status,
+                    currentSetNumber: currentSetNumber,
+                    currentSet: currentSet
+                };
+            });
+
+            displayInProgressMatches(matchesWithSets);
+        }
+
+        function displayInProgressMatches(matches) {
+            var container = document.getElementById('resume-match-container');
+            var listDiv = document.getElementById('resume-matches-list');
+
+            listDiv.innerHTML = '';
+
+            matches.forEach(function(match) {
+                var matchBtn = document.createElement('button');
+                matchBtn.className = 'resume-match-btn';
+                matchBtn.onclick = function() {
+                    resumeMatch(match.match_id);
+                };
+
+                // Format match time
+                var matchDate = new Date(match.created_at);
+                var timeStr = matchDate.toLocaleTimeString('en-US', {
+                    hour: 'numeric',
+                    minute: '2-digit',
+                    hour12: true
+                });
+
+                // Build the display text
+                var displayHTML = '<div class="resume-match-teams">' + match.team1_name + ' vs. ' + match.opponent_name;
+
+                // Add current set and score if available
+                if (match.currentSet) {
+                    displayHTML += ' <span style="color: var(--text-secondary); font-weight: 500;"> &bull; Set ' + match.currentSetNumber + ': ' + (match.currentSet.team1_score || 0) + '-' + (match.currentSet.team2_score || 0) + '</span>';
+                } else if (match.currentSetNumber) {
+                    displayHTML += ' <span style="color: var(--text-secondary); font-weight: 500;"> &bull; Set ' + match.currentSetNumber + '</span>';
+                }
+
+                // Show sync badge if pending
+                if (match.sync_status === 'pending') {
+                    displayHTML += '<span class="resume-match-sync-badge pending">Local</span>';
+                }
+
+                displayHTML += '</div><div class="resume-match-time">Started at ' + timeStr + '</div>';
+
+                matchBtn.innerHTML = displayHTML;
+                listDiv.appendChild(matchBtn);
+            });
+
+            container.style.display = 'block';
+        }
+
+        // Resume a match
+        function resumeMatch(matchId) {
+            window.location.href = 'volleyball-tracker.html?matchId=' + encodeURIComponent(matchId);
+        }
+
+        // Navigate to Analyze Stats (only if online)
+        function goToAnalyzeStats() {
+            if (!OfflineStorage.isOnline()) return;
+            window.location.href = 'analyze-stats.html';
+        }
+
+        // Enable/disable Analyze Stats based on connectivity
+        function updateAnalyzeStatsButton() {
+            var card = document.getElementById('analyze-stats-card');
+            var desc = document.getElementById('analyze-stats-desc');
+            if (OfflineStorage.isOnline()) {
+                card.classList.remove('disabled-offline');
+                desc.textContent = 'View and analyze match statistics';
+            } else {
+                card.classList.add('disabled-offline');
+                desc.textContent = 'Requires internet connection';
+            }
+        }
+
+        // Start New Match - navigate to match setup page
+        function startNewMatch() {
+            window.location.href = 'match-setup.html';
+        }
+    </script>
+</body>
+</html>
