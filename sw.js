@@ -5,7 +5,7 @@
 // Strategy: Cache-first for app files, network-first for CDN resources.
 // ============================================================================
 
-var CACHE_NAME = 'vb-tracker-v6';
+var CACHE_NAME = 'vb-tracker-v8';
 
 var APP_SHELL_FILES = [
     './',
@@ -13,6 +13,7 @@ var APP_SHELL_FILES = [
     './match-setup.html',
     './volleyball-tracker.html',
     './analyze-stats.html',
+    './app-mode.js',
     './config.js',
     './offline-storage.js',
     './manifest.json'

@@ -9,6 +9,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app-mode.js"></script>
     <script src="config.js"></script>
     <script src="offline-storage.js"></script>
     <style>
@@ -525,6 +526,26 @@
             text-transform: uppercase;
             letter-spacing: 1px;
             color: var(--accent-primary);
+            cursor: pointer;
+            user-select: none;
+            transition: color 0.2s;
+            white-space: nowrap;
+        }
+
+        .stats-table th:hover {
+            color: var(--accent-secondary);
+        }
+
+        .sort-arrow {
+            font-size: 0.75rem;
+            margin-left: 4px;
+            color: var(--text-secondary);
+            opacity: 0.4;
+        }
+
+        .sort-arrow.active {
+            color: var(--accent-secondary);
+            opacity: 1;
         }
 
         .stats-table td {
@@ -766,8 +787,8 @@
             <div class="match-controls">
                 <div class="set-indicator">
                     <div class="set-badge active" data-set="1">Set 1</div>
-                    <div class="set-badge" data-set="2">Set 2</div>
-                    <div class="set-badge" data-set="3">Set 3</div>
+                    <div class="set-badge" data-set="2" style="display: none;">Set 2</div>
+                    <div class="set-badge" data-set="3" style="display: none;">Set 3</div>
                 </div>
             </div>
 
@@ -936,26 +957,27 @@
                             <button class="outcome-btn-small inplay-btn" onclick="recordOutcome('Adelaide', 'inplay', 'player-adelaide')">In Play</button>
                         </div>
                     </div>
+                    <div class="player-card" id="player-greta">
+                        <button class="player-btn" onclick="selectPlayer('Greta', 'player-greta')">Greta<div class="player-stats-mini" id="greta-mini">0 Att • 0 K</div></button>
+                        <div class="player-outcomes" id="outcomes-greta">
+                            <button class="outcome-btn-small kill-btn" onclick="recordOutcome('Greta', 'kill', 'player-greta')">Kill</button>
+                            <button class="outcome-btn-small error-btn" onclick="recordOutcome('Greta', 'error', 'player-greta')">Error</button>
+                            <button class="outcome-btn-small block-btn" onclick="recordOutcome('Greta', 'block', 'player-greta')">Block</button>
+                            <button class="outcome-btn-small inplay-btn" onclick="recordOutcome('Greta', 'inplay', 'player-greta')">In Play</button>
+                        </div>
+                    </div>
+                    <div class="player-card" id="player-hannah">
+                        <button class="player-btn" onclick="selectPlayer('Hannah', 'player-hannah')">Hannah<div class="player-stats-mini" id="hannah-mini">0 Att • 0 K</div></button>
+                        <div class="player-outcomes" id="outcomes-hannah">
+                            <button class="outcome-btn-small kill-btn" onclick="recordOutcome('Hannah', 'kill', 'player-hannah')">Kill</button>
+                            <button class="outcome-btn-small error-btn" onclick="recordOutcome('Hannah', 'error', 'player-hannah')">Error</button>
+                            <button class="outcome-btn-small block-btn" onclick="recordOutcome('Hannah', 'block', 'player-hannah')">Block</button>
+                            <button class="outcome-btn-small inplay-btn" onclick="recordOutcome('Hannah', 'inplay', 'player-hannah')">In Play</button>
+                        </div>
+                    </div>
                 </div>
 
-                <div class="stats-table">
-                    <table>
-                        <thead>
-                            <tr><th>Player</th><th>Att</th><th>K</th><th>E</th><th>K%</th><th>Hit%</th></tr>
-                        </thead>
-                        <tbody id="stats-tbody">
-                            <tr><td class="player-name">Lexi</td><td id="lexi-att">0</td><td id="lexi-kills">0</td><td id="lexi-errors">0</td><td class="percentage" id="lexi-kpct">0%</td><td class="percentage" id="lexi-hitpct">0%</td></tr>
-                            <tr><td class="player-name">Anne</td><td id="anne-att">0</td><td id="anne-kills">0</td><td id="anne-errors">0</td><td class="percentage" id="anne-kpct">0%</td><td class="percentage" id="anne-hitpct">0%</td></tr>
-                            <tr><td class="player-name">Cora</td><td id="cora-att">0</td><td id="cora-kills">0</td><td id="cora-errors">0</td><td class="percentage" id="cora-kpct">0%</td><td class="percentage" id="cora-hitpct">0%</td></tr>
-                            <tr><td class="player-name">Amelie</td><td id="amelie-att">0</td><td id="amelie-kills">0</td><td id="amelie-errors">0</td><td class="percentage" id="amelie-kpct">0%</td><td class="percentage" id="amelie-hitpct">0%</td></tr>
-                            <tr><td class="player-name">Norah</td><td id="norah-att">0</td><td id="norah-kills">0</td><td id="norah-errors">0</td><td class="percentage" id="norah-kpct">0%</td><td class="percentage" id="norah-hitpct">0%</td></tr>
-                            <tr><td class="player-name">Grace</td><td id="grace-att">0</td><td id="grace-kills">0</td><td id="grace-errors">0</td><td class="percentage" id="grace-kpct">0%</td><td class="percentage" id="grace-hitpct">0%</td></tr>
-                            <tr><td class="player-name">Laura</td><td id="laura-att">0</td><td id="laura-kills">0</td><td id="laura-errors">0</td><td class="percentage" id="laura-kpct">0%</td><td class="percentage" id="laura-hitpct">0%</td></tr>
-                            <tr><td class="player-name">Lila</td><td id="lila-att">0</td><td id="lila-kills">0</td><td id="lila-errors">0</td><td class="percentage" id="lila-kpct">0%</td><td class="percentage" id="lila-hitpct">0%</td></tr>
-                            <tr><td class="player-name">Kjersten</td><td id="kjersten-att">0</td><td id="kjersten-kills">0</td><td id="kjersten-errors">0</td><td class="percentage" id="kjersten-kpct">0%</td><td class="percentage" id="kjersten-hitpct">0%</td></tr>
-                            <tr><td class="player-name">Adelaide</td><td id="adelaide-att">0</td><td id="adelaide-kills">0</td><td id="adelaide-errors">0</td><td class="percentage" id="adelaide-kpct">0%</td><td class="percentage" id="adelaide-hitpct">0%</td></tr>
-                        </tbody>
-                    </table>
+                <div id="stats-table-container" class="stats-table">
                 </div>
             </div>
         </div>
@@ -1004,6 +1026,10 @@
             savedSets: []
         };
 
+        // Player stats sort state
+        var trackerSortColumn = 'name';
+        var trackerSortDirection = 'asc';
+
         // Player stats (cumulative across match)
         var playerStats = {
             'Lexi': { attempts: 0, kills: 0, errors: 0 },
@@ -1015,8 +1041,56 @@
             'Laura': { attempts: 0, kills: 0, errors: 0 },
             'Lila': { attempts: 0, kills: 0, errors: 0 },
             'Kjersten': { attempts: 0, kills: 0, errors: 0 },
-            'Adelaide': { attempts: 0, kills: 0, errors: 0 }
+            'Adelaide': { attempts: 0, kills: 0, errors: 0 },
+            'Greta': { attempts: 0, kills: 0, errors: 0 },
+            'Hannah': { attempts: 0, kills: 0, errors: 0 }
         };
+
+        // ===== MATCH FORMAT HELPERS =====
+
+        function getWinScore(setNumber) {
+            if (setNumber === 3) return 15;
+            if (matchInfo && matchInfo.match_format === 'pool_play' && matchInfo.scoring_format === '0_to_21') {
+                return 21;
+            }
+            return 25;
+        }
+
+        function getStartingScore(setNumber) {
+            if (setNumber === 3) return 0;
+            if (matchInfo && matchInfo.match_format === 'pool_play' && matchInfo.scoring_format === '4_to_25') {
+                return 4;
+            }
+            return 0;
+        }
+
+        function getFormatLabel() {
+            if (!matchInfo || !matchInfo.match_format) return '';
+            if (matchInfo.match_format === 'pool_play') {
+                if (matchInfo.scoring_format === '0_to_21') return 'Pool Play (to 21)';
+                if (matchInfo.scoring_format === '4_to_25') return 'Pool Play (4 to 25)';
+                return 'Pool Play';
+            }
+            return 'Bracket Play';
+        }
+
+        function initializeStartingScores() {
+            for (var s = 1; s <= 3; s++) {
+                var startScore = getStartingScore(s);
+                if (startScore > 0) {
+                    // Only set starting scores if the set hasn't been played yet
+                    var set = matchData.sets[s];
+                    if (set.team1.score === 0 && set.team2.score === 0 &&
+                        set.team1.kills === 0 && set.team1.blocks === 0 &&
+                        set.team1.serves === 0 && set.team1.errors === 0 &&
+                        set.team2.kills === 0 && set.team2.blocks === 0 &&
+                        set.team2.serves === 0 && set.team2.errors === 0) {
+                        set.team1.score = startScore;
+                        set.team2.score = startScore;
+                    }
+                }
+            }
+        }
 
         // ===== LOAD MATCH DATA (LOCAL-FIRST, SUPABASE FALLBACK) =====
 
@@ -1039,6 +1113,8 @@
                             tournament: matchRow.tournament,
                             team1_name: matchRow.team1_name,
                             opponent_name: matchRow.opponent_name,
+                            match_format: matchRow.match_format || 'bracket_play',
+                            scoring_format: matchRow.scoring_format || null,
                             match_status: matchRow.match_status,
                             sync_status: 'synced',
                             created_at: matchRow.created_at
@@ -1163,6 +1239,9 @@
                 displaySetHistory();
             }
 
+            // Initialize starting scores for unplayed sets (e.g., 4-25 pool play)
+            initializeStartingScores();
+
             // Load player stats from localStorage
             var localPlayerStats = OfflineStorage.getAllPlayerStats(matchId);
             Object.keys(localPlayerStats).forEach(function(name) {
@@ -1177,6 +1256,7 @@
 
             updateScoreDisplay();
             updatePlayerStatsDisplay();
+            updateSetBadgeVisibility();
 
             // Show banner if match is completed
             if (matchInfo.match_status === 'completed') {
@@ -1218,6 +1298,17 @@
             });
             document.querySelector('[data-set="' + setNum + '"]').classList.add('active');
             updateScoreDisplay();
+        }
+
+        function updateSetBadgeVisibility() {
+            var savedSetNums = matchData.savedSets.map(function(s) { return s.setNum; });
+            var set2Badge = document.querySelector('[data-set="2"]');
+            var set3Badge = document.querySelector('[data-set="3"]');
+
+            // Show Set 2 if Set 1 has been saved
+            set2Badge.style.display = savedSetNums.indexOf(1) >= 0 ? '' : 'none';
+            // Show Set 3 if Set 2 has been saved
+            set3Badge.style.display = savedSetNums.indexOf(2) >= 0 ? '' : 'none';
         }
 
         // ===== SCORE TRACKING =====
@@ -1285,8 +1376,8 @@
             // Mark match as pending sync
             OfflineStorage.markMatchPending(matchId);
 
-            // Try to sync to Supabase in the background
-            if (db) {
+            // Try to sync to Supabase in the background (skip in demo mode)
+            if (db && !isDemoMode()) {
                 db.from('set_scores').upsert({
                     match_id: matchId,
                     set_number: currentSet,
@@ -1307,7 +1398,7 @@
             var set = matchData.sets[currentSet];
             var score1 = set.team1.score;
             var score2 = set.team2.score;
-            var winScore = currentSet === 3 ? 15 : 25;
+            var winScore = getWinScore(currentSet);
             var leadBy2 = Math.abs(score1 - score2) >= 2;
             var reachedTarget = score1 >= winScore || score2 >= winScore;
 
@@ -1368,8 +1459,8 @@
             OfflineStorage.saveSet(matchId, currentSet, setData);
             OfflineStorage.markMatchPending(matchId);
 
-            // Try to sync to Supabase in the background
-            if (db) {
+            // Try to sync to Supabase in the background (skip in demo mode)
+            if (db && !isDemoMode()) {
                 db.from('set_scores').upsert({
                     match_id: matchId,
                     set_number: currentSet,
@@ -1421,6 +1512,8 @@
 
             var finishBtn = document.getElementById('finish-match-btn');
             finishBtn.style.display = matchData.savedSets.length > 0 ? 'block' : 'none';
+
+            updateSetBadgeVisibility();
         }
 
         // ===== ATTACK TRACKING =====
@@ -1468,8 +1561,8 @@
             });
             OfflineStorage.markMatchPending(matchId);
 
-            // Try to sync to Supabase in the background
-            if (db) {
+            // Try to sync to Supabase in the background (skip in demo mode)
+            if (db && !isDemoMode()) {
                 db.from('player_stats').upsert({
                     match_id: matchId,
                     player_name: player,
@@ -1493,22 +1586,94 @@
             currentlyExpandedCard = null;
         }
 
+        function trackerSortArrowHTML(column) {
+            if (trackerSortColumn === column) {
+                var arrow = trackerSortDirection === 'asc' ? '▲' : '▼';
+                return '<span class="sort-arrow active">' + arrow + '</span>';
+            }
+            return '<span class="sort-arrow">▲▼</span>';
+        }
+
+        function sortTrackerStats(column) {
+            if (trackerSortColumn === column) {
+                trackerSortDirection = trackerSortDirection === 'desc' ? 'asc' : 'desc';
+            } else {
+                trackerSortColumn = column;
+                trackerSortDirection = column === 'name' ? 'asc' : 'desc';
+            }
+            renderStatsTable();
+        }
+
+        function renderStatsTable() {
+            var playersArray = Object.keys(playerStats).map(function(player) {
+                var stats = playerStats[player];
+                var killPct = stats.attempts > 0 ? parseFloat(((stats.kills / stats.attempts) * 100).toFixed(1)) : 0;
+                var hitPct = stats.attempts > 0 ? parseFloat((((stats.kills - stats.errors) / stats.attempts) * 100).toFixed(1)) : 0;
+                return {
+                    name: player,
+                    attempts: stats.attempts,
+                    kills: stats.kills,
+                    errors: stats.errors,
+                    killPct: killPct,
+                    hitPct: hitPct
+                };
+            });
+
+            var sorted = playersArray.slice();
+            sorted.sort(function(a, b) {
+                var valA = a[trackerSortColumn];
+                var valB = b[trackerSortColumn];
+                if (trackerSortColumn === 'name') {
+                    valA = valA.toLowerCase();
+                    valB = valB.toLowerCase();
+                    return trackerSortDirection === 'asc'
+                        ? valA.localeCompare(valB)
+                        : valB.localeCompare(valA);
+                }
+                return trackerSortDirection === 'asc' ? valA - valB : valB - valA;
+            });
+
+            var columns = [
+                { key: 'name', label: 'Player' },
+                { key: 'attempts', label: 'Att' },
+                { key: 'kills', label: 'K' },
+                { key: 'errors', label: 'E' },
+                { key: 'killPct', label: 'K%' },
+                { key: 'hitPct', label: 'Hit%' }
+            ];
+
+            var tableHTML = '<table><thead><tr>';
+            columns.forEach(function(col) {
+                tableHTML += '<th onclick="sortTrackerStats(\'' + col.key + '\')">' + col.label + trackerSortArrowHTML(col.key) + '</th>';
+            });
+            tableHTML += '</tr></thead><tbody>';
+
+            sorted.forEach(function(player) {
+                var killPctDisplay = player.attempts > 0 ? player.killPct + '%' : '0%';
+                var hitPctDisplay = player.attempts > 0 ? player.hitPct + '%' : '0%';
+                tableHTML += '<tr>';
+                tableHTML += '<td class="player-name">' + player.name + '</td>';
+                tableHTML += '<td>' + player.attempts + '</td>';
+                tableHTML += '<td>' + player.kills + '</td>';
+                tableHTML += '<td>' + player.errors + '</td>';
+                tableHTML += '<td class="percentage">' + killPctDisplay + '</td>';
+                tableHTML += '<td class="percentage">' + hitPctDisplay + '</td>';
+                tableHTML += '</tr>';
+            });
+
+            tableHTML += '</tbody></table>';
+            document.getElementById('stats-table-container').innerHTML = tableHTML;
+        }
+
         function updatePlayerStatsDisplay() {
+            // Update mini stats on player cards
             Object.keys(playerStats).forEach(function(player) {
                 var stats = playerStats[player];
                 var playerKey = player.toLowerCase();
-
-                document.getElementById(playerKey + '-att').textContent = stats.attempts;
-                document.getElementById(playerKey + '-kills').textContent = stats.kills;
-                document.getElementById(playerKey + '-errors').textContent = stats.errors;
-
-                var killPct = stats.attempts > 0 ? ((stats.kills / stats.attempts) * 100).toFixed(1) : 0;
-                var hitPct = stats.attempts > 0 ? (((stats.kills - stats.errors) / stats.attempts) * 100).toFixed(1) : 0;
-
-                document.getElementById(playerKey + '-kpct').textContent = killPct + '%';
-                document.getElementById(playerKey + '-hitpct').textContent = hitPct + '%';
                 document.getElementById(playerKey + '-mini').textContent = stats.attempts + ' Att \u2022 ' + stats.kills + ' K';
             });
+            // Re-render the sortable stats table
+            renderStatsTable();
         }
 
         // ===== FINISH MATCH (LOCAL-FIRST) =====
@@ -1523,8 +1688,8 @@
             matchInfo.sync_status = 'pending';
             OfflineStorage.saveMatch(matchInfo);
 
-            // Try to sync to Supabase in the background
-            if (db) {
+            // Try to sync to Supabase in the background (skip in demo mode)
+            if (db && !isDemoMode()) {
                 OfflineStorage.syncMatchToSupabase(db, matchId).then(function(success) {
                     if (success) {
                         OfflineStorage.markMatchSynced(matchId);
@@ -1547,8 +1712,8 @@
             // Remove from localStorage
             OfflineStorage.removeMatch(matchId);
 
-            // Try to delete from Supabase too
-            if (db) {
+            // Try to delete from Supabase too (skip in demo mode)
+            if (db && !isDemoMode()) {
                 db.from('matches').delete().eq('match_id', matchId).then(function(result) {
                     if (result.error) {
                         console.warn('Delete from Supabase failed:', result.error);
@@ -1630,8 +1795,8 @@
             });
             OfflineStorage.markMatchPending(matchId);
 
-            // Try to sync to Supabase
-            if (db) {
+            // Try to sync to Supabase (skip in demo mode)
+            if (db && !isDemoMode()) {
                 db.from('player_stats').upsert({
                     match_id: matchId,
                     player_name: action.player,
@@ -1649,6 +1814,7 @@
         // ===== INITIALIZE =====
 
         window.addEventListener('DOMContentLoaded', function() {
+            renderStatsTable();
             loadMatchData();
         });
     </script>

@@ -8,6 +8,8 @@
     <meta name="theme-color" content="#dc2626">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app-mode.js"></script>
     <script src="config.js"></script>
     <script src="offline-storage.js"></script>
     <style>
@@ -116,6 +118,35 @@
         .back-btn:hover {
             border-color: var(--accent-primary);
             transform: scale(1.05);
+        }
+
+        .team-selector {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin: 20px 0;
+        }
+
+        .team-btn {
+            font-family: 'Barlow Condensed', sans-serif;
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid var(--accent-primary);
+            background: transparent;
+            color: var(--accent-primary);
+        }
+
+        .team-btn:hover {
+            transform: scale(1.05);
+        }
+
+        .team-btn.active {
+            background: var(--accent-primary);
+            color: var(--bg-primary);
         }
 
         .stats-grid {
@@ -550,6 +581,8 @@
 
         <a href="index.html" class="back-btn">← Back to Home</a>
 
+        <div id="team-selector" class="team-selector"></div>
+
         <div class="stats-grid">
             <div class="stat-card">
                 <h2 class="stat-title">Team Record</h2>
@@ -591,6 +624,9 @@
         // Register service worker
         registerServiceWorker();
 
+        // Global database reference
+        var db = null;
+
         // Player stats sort state
         var currentPlayersData = [];
         var playerSortColumn = 'hitPct';
@@ -598,140 +634,192 @@
 
         // Initialize on page load
         window.addEventListener('DOMContentLoaded', function() {
-            console.log('Page loaded, initializing from localStorage...');
-            loadTeamRecord();
-            loadMatchHistory();
-            loadPlayerStats();
-        });
+            console.log('Page loaded, initializing...');
 
-        // ===== HELPER: Get completed matches from localStorage =====
+            setTimeout(function() {
+                db = tryInitSupabase();
 
-        function getCompletedMatches() {
-            var allMatches = OfflineStorage.getAllMatches();
-            var completed = [];
-            Object.keys(allMatches).forEach(function(id) {
-                if (allMatches[id].match_status === 'completed') {
-                    completed.push(allMatches[id]);
+                if (!db) {
+                    showError('Could not connect to database. Analyze Stats requires an internet connection.');
+                } else {
+                    console.log('Database initialized, loading stats...');
+                    loadTeamSelector();
+                    loadTeamRecord();
+                    loadMatchHistory();
+                    loadPlayerStats();
                 }
-            });
-            // Sort by created_at descending (most recent first)
-            completed.sort(function(a, b) {
-                return new Date(b.created_at) - new Date(a.created_at);
-            });
-            return completed;
-        }
-
-        // ===== HELPER: Get sets for a match as an array =====
-
-        function getSetsArray(matchId) {
-            var setsObj = OfflineStorage.getSets(matchId);
-            var setsArray = [];
-            Object.keys(setsObj).forEach(function(setNum) {
-                var set = setsObj[setNum];
-                set.set_number = parseInt(setNum);
-                setsArray.push(set);
-            });
-            setsArray.sort(function(a, b) { return a.set_number - b.set_number; });
-            return setsArray;
-        }
-
-        // ===== TEAM RECORD =====
-
-        function loadTeamRecord() {
+            }, 500);
+        });
+        
+        async function loadTeamSelector() {
             try {
-                console.log('Loading team record from localStorage...');
+                const { data, error } = await db
+                    .from('matches')
+                    .select('team1_name')
+                    .not('team1_name', 'is', null);
 
-                var matches = getCompletedMatches();
+                if (error || !data || data.length === 0) return;
 
-                if (matches.length === 0) {
+                // Get unique team names
+                const teams = [...new Set(data.map(d => d.team1_name))].sort();
+
+                const container = document.getElementById('team-selector');
+                container.innerHTML = teams.map((team, i) =>
+                    `<button class="team-btn${i === 0 ? ' active' : ''}" onclick="selectTeam(this)">${team}</button>`
+                ).join('');
+            } catch (err) {
+                console.error('Error loading team selector:', err);
+            }
+        }
+
+        function selectTeam(btn) {
+            document.querySelectorAll('.team-btn').forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+        }
+
+        async function loadTeamRecord() {
+            try {
+                console.log('Fetching team record...');
+                
+                // Get all completed matches
+                const { data: matches, error: matchError } = await db
+                    .from('matches')
+                    .select('match_id, opponent_name')
+                    .eq('match_status', 'completed');
+                
+                if (matchError) {
+                    console.error('Error fetching matches:', matchError);
+                    showError('Error loading matches: ' + matchError.message);
+                    return;
+                }
+                
+                console.log('Found completed matches:', matches);
+                
+                if (!matches || matches.length === 0) {
                     displayRecord(0, 0);
                     return;
                 }
-
-                var totalWins = 0;
-                var totalLosses = 0;
-
-                for (var i = 0; i < matches.length; i++) {
-                    var match = matches[i];
-                    var sets = getSetsArray(match.match_id);
-
-                    if (sets.length === 0) {
+                
+                let totalWins = 0;
+                let totalLosses = 0;
+                
+                // For each match, get the set scores and calculate wins/losses
+                for (const match of matches) {
+                    const { data: sets, error: setError } = await db
+                        .from('set_scores')
+                        .select('set_number, team1_score, team2_score')
+                        .eq('match_id', match.match_id)
+                        .order('set_number');
+                    
+                    if (setError) {
+                        console.error('Error fetching sets for match:', match.match_id, setError);
+                        continue;
+                    }
+                    
+                    // Skip matches with no saved sets
+                    if (!sets || sets.length === 0) {
                         console.log('Skipping match with no sets:', match.match_id);
                         continue;
                     }
-
-                    console.log('Match vs ' + match.opponent_name + ':', sets);
-
-                    for (var j = 0; j < sets.length; j++) {
-                        var set = sets[j];
+                    
+                    console.log(`Match vs ${match.opponent_name}:`, sets);
+                    
+                    // Count wins and losses for this match
+                    for (const set of sets) {
                         if (set.team1_score > set.team2_score) {
                             totalWins++;
+                            console.log(`  Set ${set.set_number}: WIN (${set.team1_score}-${set.team2_score})`);
                         } else if (set.team2_score > set.team1_score) {
                             totalLosses++;
+                            console.log(`  Set ${set.set_number}: LOSS (${set.team1_score}-${set.team2_score})`);
                         }
+                        // If scores are tied, we don't count it as win or loss
                     }
                 }
-
+                
                 console.log('Final record:', totalWins, '-', totalLosses);
                 displayRecord(totalWins, totalLosses);
-
+                
             } catch (err) {
                 console.error('Unexpected error:', err);
                 showError('Unexpected error: ' + err.message);
             }
         }
-
+        
         function displayRecord(wins, losses) {
-            var container = document.getElementById('record-container');
-            container.innerHTML =
-                '<div class="record-display">' +
-                    '<div class="record-label">Season Record</div>' +
-                    '<div class="record-value">' +
-                        '<span class="record-wins">' + wins + '</span>' +
-                        '<span class="record-separator">-</span>' +
-                        '<span class="record-losses">' + losses + '</span>' +
-                    '</div>' +
-                '</div>';
+            const container = document.getElementById('record-container');
+            container.innerHTML = `
+                <div class="record-display">
+                    <div class="record-label">Season Record</div>
+                    <div class="record-value">
+                        <span class="record-wins">${wins}</span>
+                        <span class="record-separator">-</span>
+                        <span class="record-losses">${losses}</span>
+                    </div>
+                </div>
+            `;
         }
-
+        
         function showError(message) {
-            var container = document.getElementById('record-container');
-            container.innerHTML = '<div class="error">' + message + '</div>';
+            const container = document.getElementById('record-container');
+            container.innerHTML = `
+                <div class="error">
+                    ${message}
+                </div>
+            `;
         }
-
-        // ===== MATCH HISTORY =====
-
-        function loadMatchHistory() {
+        
+        async function loadMatchHistory() {
             try {
-                console.log('Loading match history from localStorage...');
-
-                var matches = getCompletedMatches();
-
-                if (matches.length === 0) {
+                console.log('Fetching match history...');
+                
+                // Get all completed matches, ordered by most recent first
+                const { data: matches, error: matchError } = await db
+                    .from('matches')
+                    .select('match_id, opponent_name, tournament, created_at')
+                    .eq('match_status', 'completed')
+                    .order('created_at', { ascending: false });
+                
+                if (matchError) {
+                    console.error('Error fetching matches:', matchError);
+                    showMatchHistoryError('Error loading matches: ' + matchError.message);
+                    return;
+                }
+                
+                console.log('Found completed matches:', matches);
+                
+                if (!matches || matches.length === 0) {
                     displayNoMatches();
                     return;
                 }
-
-                var matchesWithSets = [];
-
-                for (var i = 0; i < matches.length; i++) {
-                    var match = matches[i];
-                    var sets = getSetsArray(match.match_id);
-
-                    if (sets.length > 0) {
+                
+                // Build match data with sets
+                const matchesWithSets = [];
+                
+                for (const match of matches) {
+                    const { data: sets, error: setError } = await db
+                        .from('set_scores')
+                        .select('*')
+                        .eq('match_id', match.match_id)
+                        .order('set_number');
+                    
+                    if (setError) {
+                        console.error('Error fetching sets:', setError);
+                        continue;
+                    }
+                    
+                    // Only include matches with at least 1 set
+                    if (sets && sets.length > 0) {
                         matchesWithSets.push({
-                            match_id: match.match_id,
-                            opponent_name: match.opponent_name,
-                            tournament: match.tournament,
-                            created_at: match.created_at,
+                            ...match,
                             sets: sets
                         });
                     }
                 }
-
+                
                 console.log('Matches with sets:', matchesWithSets);
                 displayMatchHistory(matchesWithSets);
-
+                
             } catch (err) {
                 console.error('Unexpected error:', err);
                 showMatchHistoryError('Unexpected error: ' + err.message);
@@ -870,58 +958,57 @@
             `;
         }
         
-        function loadPlayerStats() {
+        async function loadPlayerStats() {
             try {
-                console.log('Loading player statistics from localStorage...');
-
-                var matches = getCompletedMatches();
-
-                // Aggregate stats by player name across all completed matches
-                var playerTotals = {};
-                var hasAnyStats = false;
-
-                for (var i = 0; i < matches.length; i++) {
-                    var playerStats = OfflineStorage.getAllPlayerStats(matches[i].match_id);
-                    var playerNames = Object.keys(playerStats);
-
-                    for (var j = 0; j < playerNames.length; j++) {
-                        var name = playerNames[j];
-                        var stat = playerStats[name];
-
-                        // Skip players with no data
-                        if (stat.attempts === 0 && stat.kills === 0 && stat.errors === 0) {
-                            continue;
-                        }
-
-                        hasAnyStats = true;
-
-                        if (!playerTotals[name]) {
-                            playerTotals[name] = { attempts: 0, kills: 0, errors: 0 };
-                        }
-
-                        playerTotals[name].attempts += stat.attempts || 0;
-                        playerTotals[name].kills += stat.kills || 0;
-                        playerTotals[name].errors += stat.errors || 0;
-                    }
+                console.log('Fetching player statistics...');
+                
+                // Get all player stats from all matches
+                const { data: allPlayerStats, error: statsError } = await db
+                    .from('player_stats')
+                    .select('player_name, attempts, kills, errors');
+                
+                if (statsError) {
+                    console.error('Error fetching player stats:', statsError);
+                    showPlayerStatsError('Error loading player statistics: ' + statsError.message);
+                    return;
                 }
-
-                console.log('Aggregated player totals:', playerTotals);
-
-                if (!hasAnyStats) {
+                
+                console.log('Raw player stats:', allPlayerStats);
+                
+                if (!allPlayerStats || allPlayerStats.length === 0) {
                     displayNoPlayerStats();
                     return;
                 }
-
+                
+                // Aggregate stats by player name
+                const playerTotals = {};
+                
+                allPlayerStats.forEach(stat => {
+                    if (!playerTotals[stat.player_name]) {
+                        playerTotals[stat.player_name] = {
+                            attempts: 0,
+                            kills: 0,
+                            errors: 0
+                        };
+                    }
+                    
+                    playerTotals[stat.player_name].attempts += stat.attempts;
+                    playerTotals[stat.player_name].kills += stat.kills;
+                    playerTotals[stat.player_name].errors += stat.errors;
+                });
+                
+                console.log('Aggregated player totals:', playerTotals);
+                
                 // Convert to array and calculate percentages
-                var playersArray = Object.keys(playerTotals).map(function(name) {
-                    var stats = playerTotals[name];
-                    var killPct = stats.attempts > 0
+                const playersArray = Object.keys(playerTotals).map(name => {
+                    const stats = playerTotals[name];
+                    const killPct = stats.attempts > 0 
                         ? Math.round((stats.kills / stats.attempts) * 100)
                         : 0;
-                    var hitPct = stats.attempts > 0
+                    const hitPct = stats.attempts > 0 
                         ? Math.round(((stats.kills - stats.errors) / stats.attempts) * 100)
                         : 0;
-
+                    
                     return {
                         name: name,
                         attempts: stats.attempts,
@@ -931,11 +1018,11 @@
                         hitPct: hitPct
                     };
                 });
-
+                
                 // Store globally and sort/display
                 currentPlayersData = playersArray;
                 sortAndDisplayPlayers();
-
+                
             } catch (err) {
                 console.error('Unexpected error:', err);
                 showPlayerStatsError('Unexpected error: ' + err.message);
@@ -1048,25 +1135,46 @@
             `;
         }
         
-        function deleteMatch(matchId) {
-            // Confirm deletion
-            var confirmed = confirm('Are you sure you want to delete this match?');
-
-            if (!confirmed) {
+        async function deleteMatch(matchId) {
+            // Block deletes in demo mode
+            if (isDemoMode()) {
+                alert('Delete is disabled in demo mode.');
                 return;
             }
 
-            console.log('Deleting match:', matchId);
+            // Confirm deletion
+            const confirmed = confirm('Are you sure you want to delete this match?');
 
-            // Remove match, sets, and player stats from localStorage
-            OfflineStorage.removeMatch(matchId);
+            if (!confirmed) {
+                return; // User cancelled
+            }
 
-            console.log('Match deleted successfully');
+            try {
+                console.log('Deleting match:', matchId);
 
-            // Reload all stats to reflect the deletion
-            loadTeamRecord();
-            loadMatchHistory();
-            loadPlayerStats();
+                // Delete the match (CASCADE will automatically delete related set_scores and player_stats)
+                const { error } = await db
+                    .from('matches')
+                    .delete()
+                    .eq('match_id', matchId);
+
+                if (error) {
+                    console.error('Error deleting match:', error);
+                    alert('Error deleting match: ' + error.message);
+                    return;
+                }
+
+                console.log('Match deleted successfully');
+
+                // Reload all stats to reflect the deletion
+                loadTeamRecord();
+                loadMatchHistory();
+                loadPlayerStats();
+
+            } catch (err) {
+                console.error('Unexpected error deleting match:', err);
+                alert('Unexpected error: ' + err.message);
+            }
         }
         
         function viewMatch(matchId) {
