@@ -192,6 +192,10 @@ var OfflineStorage = (function() {
     // --- Sync to Supabase ---
 
     async function syncMatchToSupabase(db, matchId) {
+        if (typeof isDemoMode === 'function' && isDemoMode()) {
+            console.log('Demo mode: skipping Supabase sync for match', matchId);
+            return false;
+        }
         var match = getMatch(matchId);
         if (!match) return false;
 
@@ -204,6 +208,8 @@ var OfflineStorage = (function() {
                     tournament: match.tournament || null,
                     team1_name: match.team1_name,
                     opponent_name: match.opponent_name,
+                    match_format: match.match_format || 'bracket_play',
+                    scoring_format: match.scoring_format || null,
                     match_status: match.match_status,
                     created_at: match.created_at
                 }, {
@@ -285,6 +291,9 @@ var OfflineStorage = (function() {
 
     async function syncAllPending(db) {
         if (!db) return { synced: 0, failed: 0 };
+        if (typeof isDemoMode === 'function' && isDemoMode()) {
+            return { synced: 0, failed: 0 };
+        }
 
         var pending = getPendingMatches();
         var synced = 0;

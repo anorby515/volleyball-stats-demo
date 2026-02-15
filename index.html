@@ -9,6 +9,7 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="app-mode.js"></script>
     <script src="config.js"></script>
     <script src="offline-storage.js"></script>
     <style>
@@ -134,6 +135,13 @@
             }
         }
 
+        .team-logo {
+            max-width: 200px;
+            height: auto;
+            margin: 0 auto 20px;
+            display: block;
+        }
+
         .subtitle {
             font-family: 'Barlow Condensed', sans-serif;
             font-size: 1.8rem;
@@ -199,17 +207,6 @@
 
         .option-card:active {
             transform: translateY(-4px) scale(1.01);
-        }
-
-        .option-icon {
-            font-size: 3rem;
-            margin-bottom: 15px;
-            display: inline-block;
-            transition: transform 0.3s ease;
-        }
-
-        .option-card:hover .option-icon {
-            transform: scale(1.1) rotate(5deg);
         }
 
         .option-title {
@@ -314,6 +311,42 @@
             font-weight: 500;
         }
 
+        .resume-match-sets {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 8px;
+        }
+
+        .resume-set-badge {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 600;
+            padding: 3px 10px;
+            border-radius: 5px;
+            background: var(--bg-primary);
+            border: 1px solid var(--border);
+            color: var(--text-secondary);
+        }
+
+        .resume-set-badge.completed {
+            border-color: var(--accent-green);
+            color: var(--accent-green);
+        }
+
+        .resume-set-badge.in-progress {
+            border-color: #f59e0b;
+            color: #f59e0b;
+        }
+
+        .resume-match-format {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 0.85rem;
+            font-weight: 600;
+            color: var(--accent-secondary);
+            margin-top: 4px;
+        }
+
         .resume-match-sync-badge {
             display: inline-block;
             font-size: 0.8rem;
@@ -349,12 +382,12 @@
     <div class="sync-status-bar hidden" id="sync-status-bar"></div>
 
     <div class="container">
-        <h1 class="app-title">Des Moines Eclipse Stat Tracker</h1>
+        <h1 class="app-title">Stat Tracker</h1>
+        <img src="eclipse-logo.png" alt="Des Moines Eclipse" class="team-logo">
         <p class="subtitle">What would you like to do today?</p>
 
         <div class="options-grid">
             <div class="option-card" onclick="startNewMatch()">
-                <div class="option-icon">🏐</div>
                 <div class="option-title">Start a New Match</div>
                 <div class="option-description">Begin tracking a new volleyball match</div>
             </div>
@@ -362,7 +395,6 @@
             <!-- Resume a Match - dynamically populated -->
             <div id="resume-match-container" style="display: none;">
                 <div class="option-card" style="cursor: default; padding: 20px;">
-                    <div class="option-icon">📋</div>
                     <div class="option-title">Resume a Match</div>
                     <div class="option-description" style="margin-bottom: 20px;">Continue tracking an in-progress match</div>
                     <div id="resume-matches-list"></div>
@@ -370,7 +402,6 @@
             </div>
 
             <div class="option-card" id="analyze-stats-card" onclick="goToAnalyzeStats()">
-                <div class="option-icon">📊</div>
                 <div class="option-title">Analyze Stats</div>
                 <div class="option-description" id="analyze-stats-desc">View and analyze match statistics</div>
             </div>
@@ -392,6 +423,13 @@
             // Always load local in-progress matches (works offline)
             loadLocalInProgressMatches();
 
+            // In demo mode: hide sync bar, skip syncing
+            if (isDemoMode()) {
+                document.getElementById('sync-status-bar').style.display = 'none';
+                updateAnalyzeStatsButton();
+                return;
+            }
+
             // Update sync status bar and analyze stats button
             updateSyncStatus();
             updateAnalyzeStatsButton();
@@ -409,16 +447,20 @@
             if (!db) {
                 db = tryInitSupabase();
             }
-            if (db) {
+            if (db && !isDemoMode()) {
                 attemptSync();
             }
-            updateSyncStatus();
+            if (!isDemoMode()) {
+                updateSyncStatus();
+            }
             updateAnalyzeStatsButton();
         });
 
         window.addEventListener('offline', function() {
             console.log('Connection lost');
-            updateSyncStatus();
+            if (!isDemoMode()) {
+                updateSyncStatus();
+            }
             updateAnalyzeStatsButton();
         });
 
@@ -542,25 +584,43 @@
                 return;
             }
 
-            // For each match, load set data to show current score
+            // For each match, load set data to show current score and set history
             var matchesWithSets = matches.map(function(match) {
                 var sets = OfflineStorage.getSets(match.match_id);
                 var currentSetNumber = 1;
                 var currentSet = null;
+                var setHistory = [];
 
-                // Find the current set (first non-completed, or in-progress)
+                // Build set history and find the current set
                 for (var i = 1; i <= 3; i++) {
                     var set = sets[i];
+                    if (set) {
+                        setHistory.push({
+                            setNumber: i,
+                            status: set.set_status,
+                            team1Score: set.team1_score || 0,
+                            team2Score: set.team2_score || 0
+                        });
+                    }
                     if (set && set.set_status === 'in_progress') {
                         currentSetNumber = i;
                         currentSet = set;
-                        break;
+                    } else if (!set || set.set_status !== 'completed') {
+                        if (!currentSet) {
+                            currentSetNumber = i;
+                            currentSet = set || null;
+                        }
                     }
-                    if (!set || set.set_status !== 'completed') {
-                        currentSetNumber = i;
-                        currentSet = set || null;
-                        break;
-                    }
+                }
+
+                // Determine match format label
+                var formatLabel = '';
+                if (match.match_format === 'pool_play') {
+                    if (match.scoring_format === '0_to_21') formatLabel = 'Pool Play (to 21)';
+                    else if (match.scoring_format === '4_to_25') formatLabel = 'Pool Play (4-25)';
+                    else formatLabel = 'Pool Play';
+                } else if (match.match_format === 'bracket_play') {
+                    formatLabel = 'Bracket Play';
                 }
 
                 return {
@@ -570,7 +630,9 @@
                     created_at: match.created_at,
                     sync_status: match.sync_status,
                     currentSetNumber: currentSetNumber,
-                    currentSet: currentSet
+                    currentSet: currentSet,
+                    setHistory: setHistory,
+                    formatLabel: formatLabel
                 };
             });
 
@@ -601,19 +663,30 @@
                 // Build the display text
                 var displayHTML = '<div class="resume-match-teams">' + match.team1_name + ' vs. ' + match.opponent_name;
 
-                // Add current set and score if available
-                if (match.currentSet) {
-                    displayHTML += ' <span style="color: var(--text-secondary); font-weight: 500;"> &bull; Set ' + match.currentSetNumber + ': ' + (match.currentSet.team1_score || 0) + '-' + (match.currentSet.team2_score || 0) + '</span>';
-                } else if (match.currentSetNumber) {
-                    displayHTML += ' <span style="color: var(--text-secondary); font-weight: 500;"> &bull; Set ' + match.currentSetNumber + '</span>';
-                }
-
                 // Show sync badge if pending
                 if (match.sync_status === 'pending') {
                     displayHTML += '<span class="resume-match-sync-badge pending">Local</span>';
                 }
 
-                displayHTML += '</div><div class="resume-match-time">Started at ' + timeStr + '</div>';
+                displayHTML += '</div>';
+
+                // Show format label
+                if (match.formatLabel) {
+                    displayHTML += '<div class="resume-match-format">' + match.formatLabel + '</div>';
+                }
+
+                displayHTML += '<div class="resume-match-time">Started at ' + timeStr + '</div>';
+
+                // Show set history
+                if (match.setHistory.length > 0) {
+                    displayHTML += '<div class="resume-match-sets">';
+                    match.setHistory.forEach(function(set) {
+                        var badgeClass = set.status === 'completed' ? 'completed' : 'in-progress';
+                        var label = 'Set ' + set.setNumber + ': ' + set.team1Score + '-' + set.team2Score;
+                        displayHTML += '<span class="resume-set-badge ' + badgeClass + '">' + label + '</span>';
+                    });
+                    displayHTML += '</div>';
+                }
 
                 matchBtn.innerHTML = displayHTML;
                 listDiv.appendChild(matchBtn);
@@ -627,15 +700,23 @@
             window.location.href = 'volleyball-tracker.html?matchId=' + encodeURIComponent(matchId);
         }
 
-        // Navigate to Analyze Stats
+        // Navigate to Analyze Stats (only if online)
         function goToAnalyzeStats() {
+            if (!OfflineStorage.isOnline()) return;
             window.location.href = 'analyze-stats.html';
         }
 
-        // Analyze Stats button is always enabled (reads from localStorage)
+        // Enable/disable Analyze Stats based on connectivity
         function updateAnalyzeStatsButton() {
             var card = document.getElementById('analyze-stats-card');
-            card.classList.remove('disabled-offline');
+            var desc = document.getElementById('analyze-stats-desc');
+            if (OfflineStorage.isOnline()) {
+                card.classList.remove('disabled-offline');
+                desc.textContent = 'View and analyze match statistics';
+            } else {
+                card.classList.add('disabled-offline');
+                desc.textContent = 'Requires internet connection';
+            }
         }
 
         // Start New Match - navigate to match setup page
