@@ -31,6 +31,14 @@ function tryInitSupabase() {
     }
 }
 
+// Google Sheets Configuration (optional)
+// To enable "Push to Sheets", create an OAuth2 Client ID at:
+// https://console.cloud.google.com/apis/credentials
+// Enable the Google Sheets API, then paste your Client ID below.
+var GOOGLE_CONFIG = {
+    clientId: '302485377735-i9rsqng3rd1qkeh9gfstvjov5outqtld.apps.googleusercontent.com' // e.g., '123456789-abc.apps.googleusercontent.com'
+};
+
 // Check if running in demo mode (read-only, no Supabase writes)
 function isDemoMode() {
     return typeof APP_MODE !== 'undefined' && APP_MODE === 'demo';

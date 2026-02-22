@@ -9,9 +9,11 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="app-mode.js"></script>
     <script src="config.js"></script>
     <script src="offline-storage.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js"></script>
     <style>
         @import url('https://fonts.googleapis.com/css2?family=Oswald:wght@400;600;700&family=Barlow+Condensed:wght@400;500;600;700&display=swap');
         
@@ -97,6 +99,13 @@
             letter-spacing: 1px;
         }
         
+        .top-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
         .back-btn {
             display: inline-block;
             font-family: 'Barlow Condensed', sans-serif;
@@ -112,41 +121,11 @@
             letter-spacing: 1px;
             transition: all 0.3s;
             text-decoration: none;
-            margin-bottom: 30px;
         }
         
         .back-btn:hover {
             border-color: var(--accent-primary);
             transform: scale(1.05);
-        }
-
-        .team-selector {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 10px;
-            margin: 20px 0;
-        }
-
-        .team-btn {
-            font-family: 'Barlow Condensed', sans-serif;
-            padding: 10px 24px;
-            border-radius: 8px;
-            font-size: 1rem;
-            font-weight: 700;
-            cursor: pointer;
-            transition: all 0.3s ease;
-            border: 2px solid var(--accent-primary);
-            background: transparent;
-            color: var(--accent-primary);
-        }
-
-        .team-btn:hover {
-            transform: scale(1.05);
-        }
-
-        .team-btn.active {
-            background: var(--accent-primary);
-            color: var(--bg-primary);
         }
 
         .stats-grid {
@@ -291,7 +270,8 @@
         
         .match-table th:nth-child(3),
         .match-table th:nth-child(4),
-        .match-table th:nth-child(5) {
+        .match-table th:nth-child(5),
+        .match-table th:nth-child(6) {
             text-align: center;
         }
         
@@ -390,6 +370,40 @@
         .total-row .stat-line {
             font-weight: 700;
             color: var(--text-primary);
+        }
+
+        .grand-total-wrapper {
+            overflow-x: auto;
+            margin-top: 20px;
+        }
+
+        .grand-total-table {
+            width: 100%;
+            border-collapse: collapse;
+            min-width: 500px;
+        }
+
+        .grand-total-table th {
+            background: var(--bg-primary);
+            padding: 15px;
+            text-align: center;
+            font-family: 'Oswald', sans-serif;
+            font-size: 1.54rem;
+            letter-spacing: 0.05em;
+            border-bottom: 2px solid var(--border);
+        }
+
+        .grand-total-table td {
+            padding: 20px 15px;
+            text-align: center;
+            font-size: 1.4rem;
+            vertical-align: top;
+        }
+
+        .grand-total-table .stat-line {
+            font-weight: 700;
+            color: var(--text-primary);
+            font-size: 1.47rem;
         }
         
         .match-separator {
@@ -540,6 +554,209 @@
             position: relative;
         }
         
+        /* Export Bar */
+        .export-bar {
+            display: flex;
+            gap: 12px;
+            margin: 20px 0;
+        }
+
+        .export-btn {
+            font-family: 'Barlow Condensed', sans-serif;
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            border: 2px solid var(--accent-primary);
+            background: var(--accent-primary);
+            color: white;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .export-btn:hover:not(:disabled) {
+            transform: scale(1.05);
+            background: var(--accent-secondary);
+            border-color: var(--accent-secondary);
+        }
+
+        .export-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        /* Filter Bar */
+        .filter-bar {
+            background: var(--bg-secondary);
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            margin-bottom: 30px;
+            overflow: hidden;
+        }
+
+        .filter-header {
+            display: flex;
+            align-items: center;
+            padding: 12px 20px;
+            gap: 12px;
+            flex-wrap: wrap;
+        }
+
+        .filter-toggle {
+            font-family: 'Barlow Condensed', sans-serif;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+            white-space: nowrap;
+        }
+
+        .filter-toggle:hover {
+            border-color: var(--accent-primary);
+        }
+
+        .filter-toggle-icon {
+            font-size: 0.8rem;
+            transition: transform 0.3s;
+        }
+
+        .filter-badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--accent-primary);
+            color: white;
+            border-radius: 50%;
+            width: 22px;
+            height: 22px;
+            font-size: 0.8rem;
+            font-weight: 700;
+        }
+
+        .filter-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+        }
+
+        .filter-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: rgba(220, 38, 38, 0.15);
+            border: 1px solid var(--accent-primary);
+            border-radius: 20px;
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: var(--accent-secondary);
+            white-space: nowrap;
+        }
+
+        .filter-chip-remove {
+            background: none;
+            border: none;
+            color: var(--accent-secondary);
+            cursor: pointer;
+            font-size: 1.1rem;
+            line-height: 1;
+            padding: 0 2px;
+            opacity: 0.7;
+            transition: opacity 0.2s;
+        }
+
+        .filter-chip-remove:hover {
+            opacity: 1;
+        }
+
+        .filter-panel {
+            padding: 0 20px 20px;
+            border-top: 1px solid var(--border);
+        }
+
+        .filter-row {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 12px 0;
+            border-bottom: 1px solid rgba(82, 82, 82, 0.3);
+        }
+
+        .filter-row:last-of-type {
+            border-bottom: none;
+        }
+
+        .filter-label {
+            font-family: 'Oswald', sans-serif;
+            font-size: 1rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--text-secondary);
+            min-width: 120px;
+            flex-shrink: 0;
+        }
+
+        .filter-select {
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 1rem;
+            font-weight: 500;
+            padding: 10px 16px;
+            background: var(--bg-card);
+            color: var(--text-primary);
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            cursor: pointer;
+            transition: border-color 0.3s;
+            flex: 1;
+            max-width: 400px;
+        }
+
+        .filter-select:hover,
+        .filter-select:focus {
+            border-color: var(--accent-primary);
+            outline: none;
+        }
+
+        .filter-actions {
+            display: flex;
+            justify-content: flex-end;
+            padding-top: 12px;
+        }
+
+        .filter-clear-btn {
+            font-family: 'Barlow Condensed', sans-serif;
+            padding: 8px 20px;
+            background: transparent;
+            color: var(--text-secondary);
+            border: 2px solid var(--border);
+            border-radius: 8px;
+            font-size: 0.95rem;
+            font-weight: 700;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            transition: all 0.3s;
+        }
+
+        .filter-clear-btn:hover {
+            border-color: var(--accent-primary);
+            color: var(--accent-primary);
+        }
+
         @media (max-width: 768px) {
             .app-title {
                 font-size: 2.5rem;
@@ -570,6 +787,29 @@
             .player-stats-table td {
                 padding: 10px 8px;
             }
+
+            .filter-header {
+                padding: 10px 15px;
+            }
+
+            .filter-panel {
+                padding: 0 15px 15px;
+            }
+
+            .filter-row {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+
+            .filter-label {
+                min-width: auto;
+            }
+
+            .filter-select {
+                max-width: 100%;
+                width: 100%;
+            }
         }
     </style>
 </head>
@@ -579,9 +819,47 @@
             <h1 class="app-title">Analyze Statistics</h1>
         </div>
 
-        <a href="index.html" class="back-btn">← Back to Home</a>
+        <div class="top-bar">
+            <a href="index.html" class="back-btn">← Back to Home</a>
+            <div id="export-bar" class="export-bar">
+                <button id="export-xlsx-btn" class="export-btn" onclick="exportXLSX()" disabled>Export Excel</button>
+                <button id="export-sheets-btn" class="export-btn" onclick="pushToSheets()" disabled style="display:none">Push to Sheets</button>
+            </div>
+        </div>
 
-        <div id="team-selector" class="team-selector"></div>
+        <div class="filter-bar">
+            <div class="filter-header">
+                <button class="filter-toggle" onclick="toggleFilterPanel()">
+                    <span class="filter-toggle-icon">▼</span>
+                    <span>Filters</span>
+                    <span id="filter-badge" class="filter-badge" style="display:none">0</span>
+                </button>
+                <div id="filter-chips" class="filter-chips"></div>
+            </div>
+            <div id="filter-panel" class="filter-panel" style="display:none">
+                <div class="filter-row">
+                    <label class="filter-label" for="filter-team">Team</label>
+                    <select id="filter-team" class="filter-select" onchange="onFilterChange('team', this.value)">
+                        <option value="">All Teams</option>
+                    </select>
+                </div>
+                <div class="filter-row">
+                    <label class="filter-label" for="filter-tournament">Tournament</label>
+                    <select id="filter-tournament" class="filter-select" onchange="onFilterChange('tournament', this.value)">
+                        <option value="">All Tournaments</option>
+                    </select>
+                </div>
+                <div class="filter-row">
+                    <label class="filter-label" for="filter-opponent">Opponent</label>
+                    <select id="filter-opponent" class="filter-select" onchange="onFilterChange('opponent', this.value)">
+                        <option value="">All Opponents</option>
+                    </select>
+                </div>
+                <div class="filter-actions">
+                    <button class="filter-clear-btn" onclick="clearAllFilters()">Clear All</button>
+                </div>
+            </div>
+        </div>
 
         <div class="stats-grid">
             <div class="stat-card">
@@ -594,6 +872,16 @@
                 </div>
             </div>
             
+            <div class="stat-card">
+                <h2 class="stat-title">Grand Totals</h2>
+                <div id="grand-total-container">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading statistics...
+                    </div>
+                </div>
+            </div>
+
             <div class="stat-card">
                 <h2 class="stat-title">Match History</h2>
                 <div id="match-history-container">
@@ -613,6 +901,16 @@
                     </div>
                 </div>
             </div>
+
+            <div class="stat-card">
+                <h2 class="stat-title">Team's Error Tracking</h2>
+                <div id="error-tracking-container">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        Loading error tracking...
+                    </div>
+                </div>
+            </div>
         </div>
         
         <div class="footer-notice">
@@ -627,10 +925,27 @@
         // Global database reference
         var db = null;
 
+        // Full dataset (source of truth) and filtered subset
+        var allMatchesData = [];
+        var filteredMatchesData = [];
+
         // Player stats sort state
         var currentPlayersData = [];
         var playerSortColumn = 'hitPct';
         var playerSortDirection = 'desc';
+
+        // Export data (points to filtered)
+        var currentMatchesData = [];
+
+        // Filter state
+        var activeFilters = {
+            team: '',
+            tournament: '',
+            opponent: ''
+        };
+
+        // Filter panel visibility
+        var filterPanelOpen = false;
 
         // Initialize on page load
         window.addEventListener('DOMContentLoaded', function() {
@@ -643,106 +958,439 @@
                     showError('Could not connect to database. Analyze Stats requires an internet connection.');
                 } else {
                     console.log('Database initialized, loading stats...');
-                    loadTeamSelector();
-                    loadTeamRecord();
-                    loadMatchHistory();
-                    loadPlayerStats();
+                    readFiltersFromURL();
+                    loadAllData();
                 }
             }, 500);
         });
-        
-        async function loadTeamSelector() {
+
+        // --- URL Param Persistence ---
+
+        function readFiltersFromURL() {
+            var params = new URLSearchParams(window.location.search);
+            activeFilters.team = params.get('team') || '';
+            activeFilters.tournament = params.get('tournament') || '';
+            activeFilters.opponent = params.get('opponent') || '';
+        }
+
+        function writeFiltersToURL() {
+            var params = new URLSearchParams();
+            if (activeFilters.team) params.set('team', activeFilters.team);
+            if (activeFilters.tournament) params.set('tournament', activeFilters.tournament);
+            if (activeFilters.opponent) params.set('opponent', activeFilters.opponent);
+
+            var newURL = window.location.pathname;
+            var qs = params.toString();
+            if (qs) newURL += '?' + qs;
+
+            window.history.replaceState(null, '', newURL);
+        }
+
+        // --- Single Data Fetch ---
+
+        async function loadAllData() {
             try {
-                const { data, error } = await db
+                console.log('Fetching all match data...');
+
+                // 1. Fetch all completed matches
+                var matchResult = await db
                     .from('matches')
-                    .select('team1_name')
-                    .not('team1_name', 'is', null);
+                    .select('match_id, opponent_name, tournament, created_at, team1_name')
+                    .eq('match_status', 'completed')
+                    .order('created_at', { ascending: false });
 
-                if (error || !data || data.length === 0) return;
+                if (matchResult.error) {
+                    console.error('Error fetching matches:', matchResult.error);
+                    showError('Error loading matches: ' + matchResult.error.message);
+                    return;
+                }
 
-                // Get unique team names
-                const teams = [...new Set(data.map(d => d.team1_name))].sort();
+                var matches = matchResult.data || [];
+                console.log('Found completed matches:', matches.length);
 
-                const container = document.getElementById('team-selector');
-                container.innerHTML = teams.map((team, i) =>
-                    `<button class="team-btn${i === 0 ? ' active' : ''}" onclick="selectTeam(this)">${team}</button>`
-                ).join('');
+                if (matches.length === 0) {
+                    allMatchesData = [];
+                    initFilters();
+                    applyFilters();
+                    return;
+                }
+
+                // 2. Fetch sets for each match
+                for (var i = 0; i < matches.length; i++) {
+                    var match = matches[i];
+                    var setResult = await db
+                        .from('set_scores')
+                        .select('*')
+                        .eq('match_id', match.match_id)
+                        .order('set_number');
+
+                    if (setResult.error) {
+                        console.error('Error fetching sets for match:', match.match_id, setResult.error);
+                        match.sets = [];
+                        continue;
+                    }
+                    match.sets = setResult.data || [];
+                }
+
+                // 3. Fetch all player stats in batch
+                var matchIds = matches.map(function(m) { return m.match_id; });
+                if (matchIds.length > 0) {
+                    var psResult = await db
+                        .from('player_stats')
+                        .select('match_id, player_name, attempts, kills, errors')
+                        .in('match_id', matchIds);
+
+                    if (!psResult.error && psResult.data) {
+                        var psByMatch = {};
+                        psResult.data.forEach(function(ps) {
+                            if (!psByMatch[ps.match_id]) psByMatch[ps.match_id] = {};
+                            if (!psByMatch[ps.match_id][ps.player_name]) {
+                                psByMatch[ps.match_id][ps.player_name] = { attempts: 0, kills: 0, errors: 0 };
+                            }
+                            psByMatch[ps.match_id][ps.player_name].attempts += ps.attempts;
+                            psByMatch[ps.match_id][ps.player_name].kills += ps.kills;
+                            psByMatch[ps.match_id][ps.player_name].errors += ps.errors;
+                        });
+
+                        matches.forEach(function(match) {
+                            var matchPlayers = psByMatch[match.match_id] || {};
+                            match.playerStats = Object.keys(matchPlayers).map(function(name) {
+                                var s = matchPlayers[name];
+                                var killPct = s.attempts > 0 ? s.kills / s.attempts : 0;
+                                var hitPct = s.attempts > 0 ? (s.kills - s.errors) / s.attempts : 0;
+                                return { name: name, attempts: s.attempts, kills: s.kills, errors: s.errors, killPct: killPct, hitPct: hitPct };
+                            });
+                        });
+                    }
+                }
+
+                // Only include matches with at least 1 set
+                allMatchesData = matches.filter(function(m) { return m.sets && m.sets.length > 0; });
+
+                console.log('All data loaded:', allMatchesData.length, 'matches with sets');
+
+                initFilters();
+                applyFilters();
+
+                // Enable export buttons
+                document.getElementById('export-xlsx-btn').disabled = false;
+                document.getElementById('export-sheets-btn').disabled = false;
+
             } catch (err) {
-                console.error('Error loading team selector:', err);
+                console.error('Unexpected error loading data:', err);
+                showError('Unexpected error: ' + err.message);
             }
         }
 
-        function selectTeam(btn) {
-            document.querySelectorAll('.team-btn').forEach(b => b.classList.remove('active'));
-            btn.classList.add('active');
+        // --- Filter Logic ---
+
+        function initFilters() {
+            // Populate Team dropdown from all data
+            var teams = [];
+            var teamSet = {};
+            allMatchesData.forEach(function(m) {
+                if (m.team1_name && !teamSet[m.team1_name]) {
+                    teamSet[m.team1_name] = true;
+                    teams.push(m.team1_name);
+                }
+            });
+            teams.sort();
+            populateDropdown('filter-team', teams, activeFilters.team, 'All Teams');
+
+            updateCascadingDropdowns();
         }
 
-        async function loadTeamRecord() {
-            try {
-                console.log('Fetching team record...');
-                
-                // Get all completed matches
-                const { data: matches, error: matchError } = await db
-                    .from('matches')
-                    .select('match_id, opponent_name')
-                    .eq('match_status', 'completed');
-                
-                if (matchError) {
-                    console.error('Error fetching matches:', matchError);
-                    showError('Error loading matches: ' + matchError.message);
-                    return;
+        function updateCascadingDropdowns() {
+            var matches = allMatchesData;
+
+            // Apply team filter
+            if (activeFilters.team) {
+                matches = matches.filter(function(m) { return m.team1_name === activeFilters.team; });
+            }
+
+            // Populate tournaments from team-filtered matches
+            var tournaments = [];
+            var tournamentSet = {};
+            matches.forEach(function(m) {
+                if (m.tournament && !tournamentSet[m.tournament]) {
+                    tournamentSet[m.tournament] = true;
+                    tournaments.push(m.tournament);
                 }
-                
-                console.log('Found completed matches:', matches);
-                
-                if (!matches || matches.length === 0) {
-                    displayRecord(0, 0);
-                    return;
+            });
+            tournaments.sort();
+
+            // If current tournament isn't in the new list, reset it
+            if (activeFilters.tournament && tournaments.indexOf(activeFilters.tournament) === -1) {
+                activeFilters.tournament = '';
+            }
+            populateDropdown('filter-tournament', tournaments, activeFilters.tournament, 'All Tournaments');
+
+            // Apply tournament filter
+            if (activeFilters.tournament) {
+                matches = matches.filter(function(m) { return m.tournament === activeFilters.tournament; });
+            }
+
+            // Populate opponents from team+tournament filtered matches
+            var opponents = [];
+            var opponentSet = {};
+            matches.forEach(function(m) {
+                if (m.opponent_name && !opponentSet[m.opponent_name]) {
+                    opponentSet[m.opponent_name] = true;
+                    opponents.push(m.opponent_name);
                 }
-                
-                let totalWins = 0;
-                let totalLosses = 0;
-                
-                // For each match, get the set scores and calculate wins/losses
-                for (const match of matches) {
-                    const { data: sets, error: setError } = await db
-                        .from('set_scores')
-                        .select('set_number, team1_score, team2_score')
-                        .eq('match_id', match.match_id)
-                        .order('set_number');
-                    
-                    if (setError) {
-                        console.error('Error fetching sets for match:', match.match_id, setError);
-                        continue;
-                    }
-                    
-                    // Skip matches with no saved sets
-                    if (!sets || sets.length === 0) {
-                        console.log('Skipping match with no sets:', match.match_id);
-                        continue;
-                    }
-                    
-                    console.log(`Match vs ${match.opponent_name}:`, sets);
-                    
-                    // Count wins and losses for this match
-                    for (const set of sets) {
-                        if (set.team1_score > set.team2_score) {
-                            totalWins++;
-                            console.log(`  Set ${set.set_number}: WIN (${set.team1_score}-${set.team2_score})`);
-                        } else if (set.team2_score > set.team1_score) {
-                            totalLosses++;
-                            console.log(`  Set ${set.set_number}: LOSS (${set.team1_score}-${set.team2_score})`);
-                        }
-                        // If scores are tied, we don't count it as win or loss
-                    }
+            });
+            opponents.sort();
+
+            // If current opponent isn't in the new list, reset it
+            if (activeFilters.opponent && opponents.indexOf(activeFilters.opponent) === -1) {
+                activeFilters.opponent = '';
+            }
+            populateDropdown('filter-opponent', opponents, activeFilters.opponent, 'All Opponents');
+        }
+
+        function populateDropdown(id, options, selectedValue, placeholder) {
+            var select = document.getElementById(id);
+            var html = '<option value="">' + placeholder + '</option>';
+            options.forEach(function(opt) {
+                var selected = opt === selectedValue ? ' selected' : '';
+                var escaped = opt.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+                html += '<option value="' + escaped + '"' + selected + '>' + escaped + '</option>';
+            });
+            select.innerHTML = html;
+        }
+
+        function onFilterChange(filterName, value) {
+            activeFilters[filterName] = value;
+
+            // Reset downstream filters
+            if (filterName === 'team') {
+                activeFilters.tournament = '';
+                activeFilters.opponent = '';
+            } else if (filterName === 'tournament') {
+                activeFilters.opponent = '';
+            }
+
+            updateCascadingDropdowns();
+            applyFilters();
+        }
+
+        function applyFilters() {
+            var matches = allMatchesData;
+
+            if (activeFilters.team) {
+                matches = matches.filter(function(m) { return m.team1_name === activeFilters.team; });
+            }
+            if (activeFilters.tournament) {
+                matches = matches.filter(function(m) { return m.tournament === activeFilters.tournament; });
+            }
+            if (activeFilters.opponent) {
+                matches = matches.filter(function(m) { return m.opponent_name === activeFilters.opponent; });
+            }
+
+            filteredMatchesData = matches;
+            currentMatchesData = matches; // for CSV export
+
+            renderTeamRecord(matches);
+            renderGrandTotal(matches);
+            displayMatchHistory(matches);
+            renderPlayerStatsFromMatches(matches);
+            renderErrorTracking(matches);
+            renderFilterChips();
+            writeFiltersToURL();
+        }
+
+        // --- Filter UI ---
+
+        function toggleFilterPanel() {
+            filterPanelOpen = !filterPanelOpen;
+            var panel = document.getElementById('filter-panel');
+            var icon = document.querySelector('.filter-toggle-icon');
+
+            panel.style.display = filterPanelOpen ? 'block' : 'none';
+            icon.textContent = filterPanelOpen ? '▲' : '▼';
+        }
+
+        function clearAllFilters() {
+            activeFilters.team = '';
+            activeFilters.tournament = '';
+            activeFilters.opponent = '';
+
+            initFilters();
+            applyFilters();
+        }
+
+        function removeFilter(filterName) {
+            activeFilters[filterName] = '';
+
+            // Reset downstream
+            if (filterName === 'team') {
+                activeFilters.tournament = '';
+                activeFilters.opponent = '';
+            } else if (filterName === 'tournament') {
+                activeFilters.opponent = '';
+            }
+
+            updateCascadingDropdowns();
+            applyFilters();
+        }
+
+        function renderFilterChips() {
+            var container = document.getElementById('filter-chips');
+            var badge = document.getElementById('filter-badge');
+            var html = '';
+            var count = 0;
+
+            var labels = { team: 'Team', tournament: 'Tournament', opponent: 'Opponent' };
+
+            ['team', 'tournament', 'opponent'].forEach(function(key) {
+                if (activeFilters[key]) {
+                    count++;
+                    var escaped = activeFilters[key].replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+                    html += '<span class="filter-chip">' +
+                        labels[key] + ': ' + escaped +
+                        '<button class="filter-chip-remove" onclick="removeFilter(\'' + key + '\')">&times;</button>' +
+                        '</span>';
                 }
-                
-                console.log('Final record:', totalWins, '-', totalLosses);
-                displayRecord(totalWins, totalLosses);
-                
-            } catch (err) {
-                console.error('Unexpected error:', err);
-                showError('Unexpected error: ' + err.message);
+            });
+
+            container.innerHTML = html;
+
+            if (count > 0) {
+                badge.style.display = 'inline-flex';
+                badge.textContent = count;
+            } else {
+                badge.style.display = 'none';
+            }
+        }
+
+        // --- Render Functions (from filtered data) ---
+
+        function renderTeamRecord(matches) {
+            if (matches.length === 0) {
+                displayRecord(0, 0);
+                return;
+            }
+
+            var totalWins = 0;
+            var totalLosses = 0;
+
+            matches.forEach(function(match) {
+                match.sets.forEach(function(set) {
+                    if (set.team1_score > set.team2_score) {
+                        totalWins++;
+                    } else if (set.team2_score > set.team1_score) {
+                        totalLosses++;
+                    }
+                });
+            });
+
+            displayRecord(totalWins, totalLosses);
+        }
+
+        function renderGrandTotal(matches) {
+            var container = document.getElementById('grand-total-container');
+
+            if (matches.length === 0) {
+                container.innerHTML = '<div class="no-matches">No matches to summarize.</div>';
+                return;
+            }
+
+            var grandEclipseKills = 0, grandEclipseServes = 0, grandEclipseBlocks = 0, grandEclipseErrors = 0;
+            var grandOpponentKills = 0, grandOpponentServes = 0, grandOpponentBlocks = 0, grandOpponentErrors = 0;
+            var grandHitting = 0, grandServing = 0, grandPassing = 0, grandPenalty = 0;
+
+            matches.forEach(function(match) {
+                match.sets.forEach(function(set) {
+                    grandEclipseKills   += set.team1_kills   || 0;
+                    grandEclipseServes  += set.team1_serves  || 0;
+                    grandEclipseBlocks  += set.team1_blocks  || 0;
+                    grandEclipseErrors  += set.team1_errors  || 0;
+
+                    grandOpponentKills  += set.team2_kills   || 0;
+                    grandOpponentServes += set.team2_serves  || 0;
+                    grandOpponentBlocks += set.team2_blocks  || 0;
+                    grandOpponentErrors += set.team2_errors  || 0;
+
+                    grandHitting  += (set.attack_errors || 0) + (set.block_errors || 0);
+                    grandServing  += set.serve_errors   || 0;
+                    grandPassing  += set.pass_errors    || 0;
+                    grandPenalty  += set.penalty_errors || 0;
+                });
+            });
+
+            container.innerHTML = `
+                <div class="grand-total-wrapper">
+                    <table class="grand-total-table">
+                        <thead>
+                            <tr>
+                                <th>Eclipse</th>
+                                <th>Opponent</th>
+                                <th>Eclipse Errors</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td class="stat-line">
+                                    <span class="stat-item">K:${grandEclipseKills}</span>
+                                    <span class="stat-item">S:${grandEclipseServes}</span>
+                                    <span class="stat-item">B:${grandEclipseBlocks}</span>
+                                    <span class="stat-item">E:${grandEclipseErrors}</span>
+                                </td>
+                                <td class="stat-line">
+                                    <span class="stat-item">K:${grandOpponentKills}</span>
+                                    <span class="stat-item">S:${grandOpponentServes}</span>
+                                    <span class="stat-item">B:${grandOpponentBlocks}</span>
+                                    <span class="stat-item">E:${grandOpponentErrors}</span>
+                                </td>
+                                <td class="stat-line">
+                                    <span class="stat-item">H:${grandHitting}</span>
+                                    <span class="stat-item">S:${grandServing}</span>
+                                    <span class="stat-item">PS:${grandPassing}</span>
+                                    <span class="stat-item">PEN:${grandPenalty}</span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            `;
+        }
+
+        function renderPlayerStatsFromMatches(matches) {
+            // Aggregate player stats from filtered matches
+            var playerTotals = {};
+
+            matches.forEach(function(match) {
+                if (!match.playerStats) return;
+                match.playerStats.forEach(function(ps) {
+                    if (!playerTotals[ps.name]) {
+                        playerTotals[ps.name] = { attempts: 0, kills: 0, errors: 0 };
+                    }
+                    playerTotals[ps.name].attempts += ps.attempts;
+                    playerTotals[ps.name].kills += ps.kills;
+                    playerTotals[ps.name].errors += ps.errors;
+                });
+            });
+
+            var playersArray = Object.keys(playerTotals).map(function(name) {
+                var stats = playerTotals[name];
+                var killPct = stats.attempts > 0 ? stats.kills / stats.attempts : 0;
+                var hitPct = stats.attempts > 0 ? (stats.kills - stats.errors) / stats.attempts : 0;
+                return {
+                    name: name,
+                    attempts: stats.attempts,
+                    kills: stats.kills,
+                    errors: stats.errors,
+                    killPct: killPct,
+                    hitPct: hitPct
+                };
+            });
+
+            currentPlayersData = playersArray;
+
+            if (playersArray.length === 0) {
+                displayNoPlayerStats();
+            } else {
+                sortAndDisplayPlayers();
             }
         }
         
@@ -769,71 +1417,22 @@
             `;
         }
         
-        async function loadMatchHistory() {
-            try {
-                console.log('Fetching match history...');
-                
-                // Get all completed matches, ordered by most recent first
-                const { data: matches, error: matchError } = await db
-                    .from('matches')
-                    .select('match_id, opponent_name, tournament, created_at')
-                    .eq('match_status', 'completed')
-                    .order('created_at', { ascending: false });
-                
-                if (matchError) {
-                    console.error('Error fetching matches:', matchError);
-                    showMatchHistoryError('Error loading matches: ' + matchError.message);
-                    return;
-                }
-                
-                console.log('Found completed matches:', matches);
-                
-                if (!matches || matches.length === 0) {
-                    displayNoMatches();
-                    return;
-                }
-                
-                // Build match data with sets
-                const matchesWithSets = [];
-                
-                for (const match of matches) {
-                    const { data: sets, error: setError } = await db
-                        .from('set_scores')
-                        .select('*')
-                        .eq('match_id', match.match_id)
-                        .order('set_number');
-                    
-                    if (setError) {
-                        console.error('Error fetching sets:', setError);
-                        continue;
-                    }
-                    
-                    // Only include matches with at least 1 set
-                    if (sets && sets.length > 0) {
-                        matchesWithSets.push({
-                            ...match,
-                            sets: sets
-                        });
-                    }
-                }
-                
-                console.log('Matches with sets:', matchesWithSets);
-                displayMatchHistory(matchesWithSets);
-                
-            } catch (err) {
-                console.error('Unexpected error:', err);
-                showMatchHistoryError('Unexpected error: ' + err.message);
-            }
+        function setErrorCell(set) {
+            var hitting = (set.attack_errors || 0) + (set.block_errors || 0);
+            var serving = set.serve_errors || 0;
+            var passing = set.pass_errors || 0;
+            var penalty = set.penalty_errors || 0;
+            return '<td class="stat-line"><span class="stat-item">H:' + hitting + '</span><span class="stat-item">S:' + serving + '</span><span class="stat-item">PS:' + passing + '</span><span class="stat-item">PEN:' + penalty + '</span></td>';
         }
-        
+
         function displayMatchHistory(matches) {
             const container = document.getElementById('match-history-container');
-            
+
             if (matches.length === 0) {
                 displayNoMatches();
                 return;
             }
-            
+
             let tableHTML = `
                 <div class="match-table-wrapper">
                     <table class="match-table">
@@ -844,51 +1443,58 @@
                                 <th>Score</th>
                                 <th>Eclipse</th>
                                 <th>Opponent</th>
+                                <th>Eclipse Errors</th>
                                 <th class="delete-column">Delete</th>
                             </tr>
                         </thead>
                         <tbody>
             `;
-            
+
             matches.forEach((match, matchIndex) => {
                 // Format date from created_at timestamp
                 const matchDate = new Date(match.created_at);
                 const formattedDate = `${matchDate.getMonth() + 1}/${matchDate.getDate()}/${matchDate.getFullYear()}`;
-                
+
                 // Get sets (up to 3)
                 const sets = match.sets.sort((a, b) => a.set_number - b.set_number);
-                
+
                 // Calculate match totals
                 let eclipseTotalScore = 0, eclipseTotalKills = 0, eclipseTotalServes = 0, eclipseTotalBlocks = 0, eclipseTotalErrors = 0;
                 let opponentTotalScore = 0, opponentTotalKills = 0, opponentTotalServes = 0, opponentTotalBlocks = 0, opponentTotalErrors = 0;
-                
+                let totalHitting = 0, totalServing = 0, totalPassing = 0, totalPenalty = 0;
+
                 sets.forEach(set => {
                     eclipseTotalScore += set.team1_score;
                     eclipseTotalKills += set.team1_kills;
                     eclipseTotalServes += set.team1_serves;
                     eclipseTotalBlocks += set.team1_blocks;
                     eclipseTotalErrors += set.team1_errors;
-                    
+
                     opponentTotalScore += set.team2_score;
                     opponentTotalKills += set.team2_kills;
                     opponentTotalServes += set.team2_serves;
                     opponentTotalBlocks += set.team2_blocks;
                     opponentTotalErrors += set.team2_errors;
+
+                    totalHitting += (set.attack_errors || 0) + (set.block_errors || 0);
+                    totalServing += set.serve_errors || 0;
+                    totalPassing += set.pass_errors || 0;
+                    totalPenalty += set.penalty_errors || 0;
                 });
-                
+
                 // Number of rows for this match (sets + total row)
                 const numRows = sets.length + 1;
-                
+
                 // Tournament/Date cell content - make it clickable
                 const opponentDisplay = `<span class="opponent-name">vs ${match.opponent_name}</span>`;
                 const dateDisplay = `<span class="match-date clickable-date" onclick="viewMatch('${match.match_id}')" title="Click to view match details">${formattedDate}</span>`;
                 const tournamentDisplay = match.tournament
                     ? `<span class="tournament-name">${match.tournament}</span><br>${opponentDisplay}<br>${dateDisplay}`
                     : `${opponentDisplay}<br>${dateDisplay}`;
-                
+
                 // Delete button (appears on first row only)
                 const deleteButton = `<button class="delete-match-btn" onclick="deleteMatch('${match.match_id}')" title="Delete match">🗑️</button>`;
-                
+
                 // First row - Set 1
                 const firstSet = sets[0];
                 tableHTML += `
@@ -898,10 +1504,11 @@
                         <td class="set-score">${firstSet.team1_score}-${firstSet.team2_score}</td>
                         <td class="stat-line"><span class="stat-item">K:${firstSet.team1_kills}</span><span class="stat-item">S:${firstSet.team1_serves}</span><span class="stat-item">B:${firstSet.team1_blocks}</span><span class="stat-item">E:${firstSet.team1_errors}</span></td>
                         <td class="stat-line"><span class="stat-item">K:${firstSet.team2_kills}</span><span class="stat-item">S:${firstSet.team2_serves}</span><span class="stat-item">B:${firstSet.team2_blocks}</span><span class="stat-item">E:${firstSet.team2_errors}</span></td>
+                        ${setErrorCell(firstSet)}
                         <td class="delete-column" rowspan="${numRows}">${deleteButton}</td>
                     </tr>
                 `;
-                
+
                 // Remaining sets (Set 2, Set 3 if they exist)
                 for (let i = 1; i < sets.length; i++) {
                     const set = sets[i];
@@ -911,10 +1518,11 @@
                             <td class="set-score">${set.team1_score}-${set.team2_score}</td>
                             <td class="stat-line"><span class="stat-item">K:${set.team1_kills}</span><span class="stat-item">S:${set.team1_serves}</span><span class="stat-item">B:${set.team1_blocks}</span><span class="stat-item">E:${set.team1_errors}</span></td>
                             <td class="stat-line"><span class="stat-item">K:${set.team2_kills}</span><span class="stat-item">S:${set.team2_serves}</span><span class="stat-item">B:${set.team2_blocks}</span><span class="stat-item">E:${set.team2_errors}</span></td>
+                            ${setErrorCell(set)}
                         </tr>
                     `;
                 }
-                
+
                 // TOTAL row
                 tableHTML += `
                     <tr class="total-row">
@@ -922,29 +1530,34 @@
                         <td class="set-score">${eclipseTotalScore}-${opponentTotalScore}</td>
                         <td class="stat-line"><span class="stat-item">K:${eclipseTotalKills}</span><span class="stat-item">S:${eclipseTotalServes}</span><span class="stat-item">B:${eclipseTotalBlocks}</span><span class="stat-item">E:${eclipseTotalErrors}</span></td>
                         <td class="stat-line"><span class="stat-item">K:${opponentTotalKills}</span><span class="stat-item">S:${opponentTotalServes}</span><span class="stat-item">B:${opponentTotalBlocks}</span><span class="stat-item">E:${opponentTotalErrors}</span></td>
+                        <td class="stat-line"><span class="stat-item">H:${totalHitting}</span><span class="stat-item">S:${totalServing}</span><span class="stat-item">PS:${totalPassing}</span><span class="stat-item">PEN:${totalPenalty}</span></td>
                     </tr>
                 `;
-                
+
                 // Add separator between matches (except last one)
                 if (matchIndex < matches.length - 1) {
-                    tableHTML += `<tr class="match-separator"><td colspan="6"></td></tr>`;
+                    tableHTML += `<tr class="match-separator"><td colspan="7"></td></tr>`;
                 }
             });
-            
+
             tableHTML += `
                         </tbody>
                     </table>
                 </div>
             `;
-            
+
             container.innerHTML = tableHTML;
         }
         
         function displayNoMatches() {
             const container = document.getElementById('match-history-container');
+            var hasActiveFilters = activeFilters.team || activeFilters.tournament || activeFilters.opponent;
+            var message = hasActiveFilters
+                ? 'No matches found for current filters.'
+                : 'No completed matches found. Start tracking matches to see history here!';
             container.innerHTML = `
                 <div class="no-matches">
-                    No completed matches found. Start tracking matches to see history here!
+                    ${message}
                 </div>
             `;
         }
@@ -956,77 +1569,6 @@
                     ${message}
                 </div>
             `;
-        }
-        
-        async function loadPlayerStats() {
-            try {
-                console.log('Fetching player statistics...');
-                
-                // Get all player stats from all matches
-                const { data: allPlayerStats, error: statsError } = await db
-                    .from('player_stats')
-                    .select('player_name, attempts, kills, errors');
-                
-                if (statsError) {
-                    console.error('Error fetching player stats:', statsError);
-                    showPlayerStatsError('Error loading player statistics: ' + statsError.message);
-                    return;
-                }
-                
-                console.log('Raw player stats:', allPlayerStats);
-                
-                if (!allPlayerStats || allPlayerStats.length === 0) {
-                    displayNoPlayerStats();
-                    return;
-                }
-                
-                // Aggregate stats by player name
-                const playerTotals = {};
-                
-                allPlayerStats.forEach(stat => {
-                    if (!playerTotals[stat.player_name]) {
-                        playerTotals[stat.player_name] = {
-                            attempts: 0,
-                            kills: 0,
-                            errors: 0
-                        };
-                    }
-                    
-                    playerTotals[stat.player_name].attempts += stat.attempts;
-                    playerTotals[stat.player_name].kills += stat.kills;
-                    playerTotals[stat.player_name].errors += stat.errors;
-                });
-                
-                console.log('Aggregated player totals:', playerTotals);
-                
-                // Convert to array and calculate percentages
-                const playersArray = Object.keys(playerTotals).map(name => {
-                    const stats = playerTotals[name];
-                    const killPct = stats.attempts > 0 
-                        ? Math.round((stats.kills / stats.attempts) * 100)
-                        : 0;
-                    const hitPct = stats.attempts > 0 
-                        ? Math.round(((stats.kills - stats.errors) / stats.attempts) * 100)
-                        : 0;
-                    
-                    return {
-                        name: name,
-                        attempts: stats.attempts,
-                        kills: stats.kills,
-                        errors: stats.errors,
-                        killPct: killPct,
-                        hitPct: hitPct
-                    };
-                });
-                
-                // Store globally and sort/display
-                currentPlayersData = playersArray;
-                sortAndDisplayPlayers();
-                
-            } catch (err) {
-                console.error('Unexpected error:', err);
-                showPlayerStatsError('Unexpected error: ' + err.message);
-            }
         }
         
         function sortArrowHTML(column) {
@@ -1094,8 +1636,8 @@
             `;
 
             players.forEach(player => {
-                const killPctDisplay = player.attempts > 0 ? `${player.killPct}%` : '-';
-                const hitPctDisplay = player.attempts > 0 ? `${player.hitPct}%` : '-';
+                const killPctDisplay = player.attempts > 0 ? player.killPct.toFixed(3).replace(/^(-?)0/, '$1') : '-';
+                const hitPctDisplay = player.attempts > 0 ? player.hitPct.toFixed(3).replace(/^(-?)0/, '$1') : '-';
 
                 tableHTML += `
                     <tr>
@@ -1117,6 +1659,50 @@
             container.innerHTML = tableHTML;
         }
         
+        function renderErrorTracking(matches) {
+            var container = document.getElementById('error-tracking-container');
+            var totalHitting = 0, totalServing = 0, totalPassing = 0, totalPenalty = 0;
+
+            matches.forEach(function(match) {
+                match.sets.forEach(function(set) {
+                    totalHitting += (set.attack_errors || 0) + (set.block_errors || 0);
+                    totalServing += set.serve_errors || 0;
+                    totalPassing += set.pass_errors || 0;
+                    totalPenalty += set.penalty_errors || 0;
+                });
+            });
+
+            if (matches.length === 0) {
+                var hasActiveFilters = activeFilters.team || activeFilters.tournament || activeFilters.opponent;
+                var message = hasActiveFilters
+                    ? 'No error data found for current filters.'
+                    : 'No completed matches found. Start tracking matches to see error data here!';
+                container.innerHTML = '<div class="no-player-stats">' + message + '</div>';
+                return;
+            }
+
+            container.innerHTML = `
+                <table class="player-stats-table">
+                    <thead>
+                        <tr>
+                            <th>Hitting</th>
+                            <th>Serving</th>
+                            <th>Passing</th>
+                            <th>Penalty</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>${totalHitting}</td>
+                            <td>${totalServing}</td>
+                            <td>${totalPassing}</td>
+                            <td>${totalPenalty}</td>
+                        </tr>
+                    </tbody>
+                </table>
+            `;
+        }
+
         function displayNoPlayerStats() {
             const container = document.getElementById('player-stats-container');
             container.innerHTML = `
@@ -1166,10 +1752,10 @@
 
                 console.log('Match deleted successfully');
 
-                // Reload all stats to reflect the deletion
-                loadTeamRecord();
-                loadMatchHistory();
-                loadPlayerStats();
+                // Remove from local data and re-apply filters
+                allMatchesData = allMatchesData.filter(function(m) { return m.match_id !== matchId; });
+                initFilters();
+                applyFilters();
 
             } catch (err) {
                 console.error('Unexpected error deleting match:', err);
@@ -1181,6 +1767,417 @@
             // Navigate to volleyball-tracker page with the match ID
             console.log('Viewing match:', matchId);
             window.location.href = `volleyball-tracker.html?matchId=${encodeURIComponent(matchId)}`;
+        }
+
+        // --- Export Functionality ---
+
+        function getSelectedTeamName() {
+            return activeFilters.team || 'Team';
+        }
+
+        function getExportDateStr() {
+            return new Date().toISOString().slice(0, 10);
+        }
+
+        function getSetByNumber(sets, num) {
+            for (var i = 0; i < sets.length; i++) {
+                if (sets[i].set_number === num) return sets[i];
+            }
+            return null;
+        }
+
+        function sv(set, field) {
+            return set ? set[field] : '';
+        }
+
+        function fmtPct(val) {
+            return val.toFixed(3).replace(/^(-?)0/, '$1');
+        }
+
+        // --- Shared: build 2D array of match data rows ---
+
+        function buildMatchRows() {
+            var rows = [];
+            var teamName = getSelectedTeamName();
+
+            currentMatchesData.forEach(function(match, idx) {
+                var matchDate = new Date(match.created_at);
+                var formattedDate = (matchDate.getMonth() + 1) + '/' + matchDate.getDate() + '/' + matchDate.getFullYear();
+                var team1 = match.team1_name || teamName;
+                var opponent = match.opponent_name;
+
+                var s1 = getSetByNumber(match.sets, 1);
+                var s2 = getSetByNumber(match.sets, 2);
+                var s3 = getSetByNumber(match.sets, 3);
+
+                rows.push(['Tournament:', match.tournament || '', '', '', '', '', '']);
+                rows.push(['Match Date:', formattedDate, '', '', '', '', '']);
+                rows.push(['', 'Eclipse Team:', team1, '', 'Opponent:', opponent, '']);
+                rows.push(['Set 3', 'Set 2', 'Set 1', 'Points from', 'Set 1', 'Set 2', 'Set 3']);
+                rows.push([sv(s3,'team1_kills'), sv(s2,'team1_kills'), sv(s1,'team1_kills'), 'Attack', sv(s1,'team2_kills'), sv(s2,'team2_kills'), sv(s3,'team2_kills')]);
+                rows.push([sv(s3,'team1_blocks'), sv(s2,'team1_blocks'), sv(s1,'team1_blocks'), 'Block', sv(s1,'team2_blocks'), sv(s2,'team2_blocks'), sv(s3,'team2_blocks')]);
+                rows.push([sv(s3,'team1_serves'), sv(s2,'team1_serves'), sv(s1,'team1_serves'), 'Serve', sv(s1,'team2_serves'), sv(s2,'team2_serves'), sv(s3,'team2_serves')]);
+                rows.push([sv(s3,'team1_errors'), sv(s2,'team1_errors'), sv(s1,'team1_errors'), 'Error', sv(s1,'team2_errors'), sv(s2,'team2_errors'), sv(s3,'team2_errors')]);
+                rows.push([sv(s3,'team1_score'), sv(s2,'team1_score'), sv(s1,'team1_score'), 'Final Score', sv(s1,'team2_score'), sv(s2,'team2_score'), sv(s3,'team2_score')]);
+                rows.push(['', '', '', '', '', '', '']);
+                rows.push(['Players', 'Attempts', 'Kills', 'Error', '', 'Kill %', 'Hitting %']);
+
+                var players = (match.playerStats || []).slice().sort(function(a, b) { return b.hitPct - a.hitPct; });
+                players.forEach(function(p) {
+                    var kp = p.attempts > 0 ? fmtPct(p.killPct) : '-';
+                    var hp = p.attempts > 0 ? fmtPct(p.hitPct) : '-';
+                    rows.push([p.name, p.attempts, p.kills, p.errors, '', kp, hp]);
+                });
+
+                if (idx < currentMatchesData.length - 1) {
+                    rows.push(['', '', '', '', '', '', '']);
+                }
+            });
+
+            return rows;
+        }
+
+        // --- CSV Export ---
+
+        // --- Excel (.xlsx) Export ---
+
+        async function exportXLSX() {
+            var btn = document.getElementById('export-xlsx-btn');
+            btn.disabled = true;
+            btn.textContent = 'Generating...';
+
+            try {
+                var workbook = new ExcelJS.Workbook();
+                var teamName = getSelectedTeamName();
+                var usedNames = {};
+
+                currentMatchesData.forEach(function(match) {
+                    // --- Sheet name (max 31 chars for Excel) ---
+                    var baseName = 'vs ' + (match.opponent_name || 'Unknown');
+                    baseName = baseName.replace(/[:\\/?*\[\]]/g, '');
+                    if (baseName.length > 31) baseName = baseName.substring(0, 31);
+
+                    if (usedNames[baseName]) {
+                        usedNames[baseName]++;
+                        var suffix = ' (' + usedNames[baseName] + ')';
+                        baseName = baseName.substring(0, 31 - suffix.length) + suffix;
+                    } else {
+                        usedNames[baseName] = 1;
+                    }
+
+                    var ws = workbook.addWorksheet(baseName);
+
+                    // --- Set data ---
+                    var s1 = getSetByNumber(match.sets, 1);
+                    var s2 = getSetByNumber(match.sets, 2);
+                    var s3 = getSetByNumber(match.sets, 3);
+                    var formatLabel = (match.match_format === 'pool_play') ? 'Pool Play' : 'Bracket Play'; // gracefully defaults to Bracket Play if column missing
+
+                    // --- Styles ---
+                    var grayFill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFD9D9D9' } };
+                    var boldFont = { bold: true };
+                    var titleFont = { bold: true, size: 16 };
+                    var centerAlign = { horizontal: 'center', vertical: 'middle' };
+
+                    // --- Column widths ---
+                    ws.getColumn(1).width = 12;
+                    ws.getColumn(2).width = 10;
+                    ws.getColumn(3).width = 10;
+                    ws.getColumn(4).width = 6;
+                    ws.getColumn(5).width = 14;
+                    ws.getColumn(6).width = 10;
+                    ws.getColumn(7).width = 6;
+                    ws.getColumn(8).width = 10;
+                    ws.getColumn(9).width = 6;
+                    ws.getColumn(10).width = 10;
+                    ws.getColumn(11).width = 6;
+
+                    // === ROW 1: Title (merged A1:K1) ===
+                    ws.mergeCells('A1:K1');
+                    var titleCell = ws.getCell('A1');
+                    titleCell.value = 'Score and Stat Sheet - ' + formatLabel;
+                    titleCell.font = titleFont;
+                    titleCell.alignment = centerAlign;
+                    ws.getRow(1).height = 30;
+
+                    // === ROW 3: Team names ===
+                    ws.mergeCells('A3:C3');
+                    var teamCell = ws.getCell('A3');
+                    teamCell.value = match.team1_name || teamName;
+                    teamCell.font = boldFont;
+                    teamCell.alignment = centerAlign;
+
+                    ws.mergeCells('F3:K3');
+                    var oppCell = ws.getCell('F3');
+                    oppCell.value = 'Opponent: ' + (match.opponent_name || '');
+                    oppCell.font = boldFont;
+                    oppCell.alignment = centerAlign;
+
+                    // === ROW 5: Set headers (gray background) ===
+                    var headerLabels = { 1: 'Set 3', 2: 'Set 2', 3: 'Set 1', 6: 'Set 1', 8: 'Set 2', 10: 'Set 3' };
+                    for (var c = 1; c <= 11; c++) {
+                        var hCell = ws.getRow(5).getCell(c);
+                        hCell.fill = grayFill;
+                        hCell.font = boldFont;
+                        hCell.alignment = centerAlign;
+                        if (headerLabels[c]) hCell.value = headerLabels[c];
+                    }
+
+                    // === ROWS 6-9: Stat rows (Attack, Block, Serve, Error) ===
+                    var statDefs = [
+                        { row: 6, label: 'Attack', t1: 'team1_kills', t2: 'team2_kills' },
+                        { row: 7, label: 'Block', t1: 'team1_blocks', t2: 'team2_blocks' },
+                        { row: 8, label: 'Serve', t1: 'team1_serves', t2: 'team2_serves' },
+                        { row: 9, label: 'Error', t1: 'team1_errors', t2: 'team2_errors' }
+                    ];
+
+                    statDefs.forEach(function(sd) {
+                        var row = ws.getRow(sd.row);
+                        row.getCell(1).value = s3 ? s3[sd.t1] : null;
+                        row.getCell(2).value = s2 ? s2[sd.t1] : null;
+                        row.getCell(3).value = s1 ? s1[sd.t1] : null;
+                        row.getCell(5).value = sd.label;
+                        row.getCell(5).font = boldFont;
+                        row.getCell(5).alignment = centerAlign;
+                        row.getCell(6).value = s1 ? s1[sd.t2] : null;
+                        row.getCell(8).value = s2 ? s2[sd.t2] : null;
+                        row.getCell(10).value = s3 ? s3[sd.t2] : null;
+                        [1, 2, 3, 6, 8, 10].forEach(function(col) {
+                            row.getCell(col).alignment = centerAlign;
+                        });
+                    });
+
+                    // === ROW 11: Final Score ===
+                    var row11 = ws.getRow(11);
+                    row11.getCell(1).value = s3 ? s3.team1_score : null;
+                    row11.getCell(2).value = s2 ? s2.team1_score : null;
+                    row11.getCell(3).value = s1 ? s1.team1_score : null;
+                    row11.getCell(5).value = 'Final Score';
+                    row11.getCell(5).font = boldFont;
+                    row11.getCell(5).alignment = centerAlign;
+                    row11.getCell(6).value = s1 ? s1.team2_score : null;
+                    row11.getCell(8).value = s2 ? s2.team2_score : null;
+                    row11.getCell(10).value = s3 ? s3.team2_score : null;
+                    [1, 2, 3, 6, 8, 10].forEach(function(col) {
+                        row11.getCell(col).alignment = centerAlign;
+                    });
+
+                    // === ROWS 13-15: Description text ===
+                    ws.mergeCells('A13:K15');
+                    var descCell = ws.getCell('A13');
+                    descCell.value = 'Every time a player earns a point they earn a tally in Attack (Kill), Block or Serve (Ace). Every time a team gives a point away (in any way) they earn a tally in Error. Note: You cannot add up the 3 categories (Attack, Block, Serve) plus Error to equal the final score because there are points earned in a rally (where neither team earns a tally) and points deducted directly from errors (where neither team earns a tally).';
+                    descCell.alignment = { wrapText: true, vertical: 'top' };
+                    descCell.font = { size: 9, italic: true };
+
+                    // === ROW 19: Hitters header (gray background, merged cells) ===
+                    ws.mergeCells('B19:C19');
+                    ws.mergeCells('D19:E19');
+                    ws.mergeCells('F19:G19');
+                    ws.mergeCells('J19:K19');
+
+                    for (var hc = 1; hc <= 11; hc++) {
+                        var hitCell = ws.getRow(19).getCell(hc);
+                        hitCell.fill = grayFill;
+                        hitCell.font = boldFont;
+                    }
+                    ws.getRow(19).getCell(1).value = 'Hitters';
+                    ws.getRow(19).getCell(2).value = 'Attempt';
+                    ws.getRow(19).getCell(2).alignment = centerAlign;
+                    ws.getRow(19).getCell(4).value = 'K';
+                    ws.getRow(19).getCell(4).alignment = centerAlign;
+                    ws.getRow(19).getCell(6).value = 'Error';
+                    ws.getRow(19).getCell(6).alignment = centerAlign;
+                    ws.getRow(19).getCell(10).value = '%';
+                    ws.getRow(19).getCell(10).alignment = centerAlign;
+
+                    // === ROWS 20+: Player data ===
+                    var players = (match.playerStats || []).slice().sort(function(a, b) {
+                        return b.hitPct - a.hitPct;
+                    });
+
+                    var playerStartRow = 20;
+                    var totalAttempts = 0, totalKills = 0, totalErrors = 0;
+
+                    players.forEach(function(p, i) {
+                        var rowNum = playerStartRow + i;
+                        var row = ws.getRow(rowNum);
+                        row.getCell(1).value = p.name;
+                        row.getCell(2).value = p.attempts;
+                        row.getCell(2).alignment = centerAlign;
+                        row.getCell(4).value = p.kills;
+                        row.getCell(4).alignment = centerAlign;
+                        row.getCell(6).value = p.errors;
+                        row.getCell(6).alignment = centerAlign;
+
+                        if (p.attempts > 0) {
+                            row.getCell(10).value = p.hitPct;
+                            row.getCell(10).numFmt = '0.000';
+                        }
+                        row.getCell(10).alignment = centerAlign;
+
+                        totalAttempts += p.attempts;
+                        totalKills += p.kills;
+                        totalErrors += p.errors;
+                    });
+
+                    // === TOTAL row (after empty row) ===
+                    var totalRowNum = playerStartRow + players.length + 1;
+                    var totalRow = ws.getRow(totalRowNum);
+                    totalRow.getCell(1).value = 'TOTAL';
+                    totalRow.getCell(1).font = boldFont;
+                    totalRow.getCell(2).value = totalAttempts;
+                    totalRow.getCell(2).font = boldFont;
+                    totalRow.getCell(2).alignment = centerAlign;
+                    totalRow.getCell(4).value = totalKills;
+                    totalRow.getCell(4).font = boldFont;
+                    totalRow.getCell(4).alignment = centerAlign;
+                    totalRow.getCell(6).value = totalErrors;
+                    totalRow.getCell(6).font = boldFont;
+                    totalRow.getCell(6).alignment = centerAlign;
+
+                    if (totalAttempts > 0) {
+                        var totalHitPct = (totalKills - totalErrors) / totalAttempts;
+                        totalRow.getCell(10).value = totalHitPct;
+                        totalRow.getCell(10).numFmt = '0.000';
+                    }
+                    totalRow.getCell(10).font = boldFont;
+                    totalRow.getCell(10).alignment = centerAlign;
+                });
+
+                // Generate and download
+                var buffer = await workbook.xlsx.writeBuffer();
+                var blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                var dateStr = getExportDateStr();
+                var filename = teamName + '_Stats_' + dateStr + '.xlsx';
+
+                var link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = filename;
+                link.click();
+                URL.revokeObjectURL(link.href);
+
+            } catch (err) {
+                console.error('XLSX export error:', err);
+                alert('Error generating Excel file: ' + err.message);
+            }
+
+            btn.textContent = 'Export Excel';
+            btn.disabled = false;
+        }
+
+        // --- Google Sheets Export ---
+
+        var googleAccessToken = null;
+        var tokenClient = null;
+
+        function pushToSheets() {
+            if (typeof GOOGLE_CONFIG === 'undefined' || !GOOGLE_CONFIG.clientId) {
+                alert('Google Sheets is not configured.\n\nTo enable this feature:\n1. Go to Google Cloud Console\n2. Create a project & enable the Google Sheets API\n3. Create an OAuth2 Client ID (Web application)\n4. Add your domain to Authorized JavaScript Origins\n5. Paste the Client ID into GOOGLE_CONFIG.clientId in config.js');
+                return;
+            }
+
+            if (typeof google === 'undefined' || !google.accounts) {
+                alert('Google Identity Services library failed to load. Check your internet connection.');
+                return;
+            }
+
+            if (!tokenClient) {
+                tokenClient = google.accounts.oauth2.initTokenClient({
+                    client_id: GOOGLE_CONFIG.clientId,
+                    scope: 'https://www.googleapis.com/auth/spreadsheets',
+                    callback: function(tokenResponse) {
+                        if (tokenResponse.error) {
+                            console.error('OAuth error:', tokenResponse);
+                            alert('Google authentication failed: ' + (tokenResponse.error_description || tokenResponse.error));
+                            return;
+                        }
+                        googleAccessToken = tokenResponse.access_token;
+                        doSheetsExport();
+                    }
+                });
+            }
+
+            if (googleAccessToken) {
+                doSheetsExport();
+            } else {
+                tokenClient.requestAccessToken();
+            }
+        }
+
+        async function doSheetsExport() {
+            var btn = document.getElementById('export-sheets-btn');
+            btn.disabled = true;
+            btn.textContent = 'Pushing...';
+
+            try {
+                var teamName = getSelectedTeamName();
+                var dateStr = getExportDateStr();
+                var title = teamName + ' Stats ' + dateStr;
+                var rows = buildMatchRows();
+
+                // Create a new spreadsheet
+                var createRes = await fetch('https://sheets.googleapis.com/v4/spreadsheets', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': 'Bearer ' + googleAccessToken,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({ properties: { title: title } })
+                });
+
+                if (createRes.status === 401) {
+                    googleAccessToken = null;
+                    btn.textContent = 'Push to Sheets';
+                    btn.disabled = false;
+                    pushToSheets();
+                    return;
+                }
+
+                if (!createRes.ok) {
+                    var errBody = await createRes.json();
+                    throw new Error(errBody.error.message || 'Failed to create spreadsheet');
+                }
+
+                var spreadsheet = await createRes.json();
+                var spreadsheetId = spreadsheet.spreadsheetId;
+                var sheetName = spreadsheet.sheets[0].properties.title;
+
+                // Write data to the sheet
+                var range = sheetName + '!A1:G' + rows.length;
+                var updateRes = await fetch(
+                    'https://sheets.googleapis.com/v4/spreadsheets/' + encodeURIComponent(spreadsheetId) +
+                    '/values/' + encodeURIComponent(range) + '?valueInputOption=RAW',
+                    {
+                        method: 'PUT',
+                        headers: {
+                            'Authorization': 'Bearer ' + googleAccessToken,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            range: range,
+                            majorDimension: 'ROWS',
+                            values: rows
+                        })
+                    }
+                );
+
+                if (!updateRes.ok) {
+                    var errBody2 = await updateRes.json();
+                    throw new Error(errBody2.error.message || 'Failed to write data');
+                }
+
+                // Open the new spreadsheet
+                window.open(spreadsheet.spreadsheetUrl, '_blank');
+
+                btn.textContent = 'Push to Sheets';
+                btn.disabled = false;
+
+            } catch (err) {
+                console.error('Sheets export error:', err);
+                alert('Error pushing to Google Sheets: ' + err.message);
+                btn.textContent = 'Push to Sheets';
+                btn.disabled = false;
+            }
         }
     </script>
 </body>
