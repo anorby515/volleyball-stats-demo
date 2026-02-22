@@ -414,7 +414,6 @@
 
         var db = null;
         var syncInProgress = false;
-        var syncStatusReady = false;
 
         // Initialize on page load
         window.addEventListener('DOMContentLoaded', function() {
@@ -431,19 +430,14 @@
                 return;
             }
 
+            // Update sync status bar and analyze stats button
+            updateSyncStatus();
             updateAnalyzeStatsButton();
 
-            // Try to sync if online (runs in background)
+            // Try to sync if online
             if (db && OfflineStorage.isOnline()) {
                 attemptSync();
             }
-
-            // Delay showing sync status for 5 seconds to let sync complete first
-            // This prevents the status bar from flickering through intermediate states
-            setTimeout(function() {
-                syncStatusReady = true;
-                updateSyncStatus();
-            }, 5000);
         });
 
         // Listen for online/offline events
@@ -473,8 +467,6 @@
         // ===== SYNC STATUS BAR =====
 
         function updateSyncStatus() {
-            if (!syncStatusReady) return;
-
             var bar = document.getElementById('sync-status-bar');
             var pending = OfflineStorage.getPendingMatches();
             var lastSync = OfflineStorage.getLastSyncTime();
@@ -555,22 +547,12 @@
 
         // ===== AUTO SYNC =====
 
-        var syncRetryCount = 0;
-        var MAX_SYNC_RETRIES = 3;
-        var syncRetryTimer = null;
-
         async function attemptSync() {
             if (syncInProgress) return;
-            if (!db) {
-                db = tryInitSupabase();
-                if (!db) return;
-            }
+            if (!db) return;
 
             var pending = OfflineStorage.getPendingMatches();
             if (pending.length === 0) {
-                // Nothing to sync — still attempt purge of any stale local data
-                syncRetryCount = 0;
-                await attemptPurge();
                 updateSyncStatus();
                 return;
             }
@@ -581,66 +563,15 @@
             try {
                 var result = await OfflineStorage.syncAllPending(db);
                 console.log('Sync result:', result);
-
-                if (result.failed > 0 && syncRetryCount < MAX_SYNC_RETRIES) {
-                    // Some matches failed to sync — schedule a retry with backoff
-                    syncRetryCount++;
-                    var delay = Math.pow(2, syncRetryCount) * 1000; // 2s, 4s, 8s
-                    console.log('Scheduling sync retry ' + syncRetryCount + ' in ' + delay + 'ms');
-                    if (syncRetryTimer) clearTimeout(syncRetryTimer);
-                    syncRetryTimer = setTimeout(function() {
-                        if (OfflineStorage.isOnline()) {
-                            attemptSync();
-                        }
-                    }, delay);
-                } else if (result.failed === 0) {
-                    syncRetryCount = 0;
-                }
             } catch (err) {
                 console.error('Sync error:', err);
-                // Schedule retry on error
-                if (syncRetryCount < MAX_SYNC_RETRIES) {
-                    syncRetryCount++;
-                    var delay = Math.pow(2, syncRetryCount) * 1000;
-                    console.log('Scheduling sync retry ' + syncRetryCount + ' after error in ' + delay + 'ms');
-                    if (syncRetryTimer) clearTimeout(syncRetryTimer);
-                    syncRetryTimer = setTimeout(function() {
-                        if (OfflineStorage.isOnline()) {
-                            attemptSync();
-                        }
-                    }, delay);
-                }
             }
 
             syncInProgress = false;
-
-            // After sync completes, attempt purge if everything is synced
-            await attemptPurge();
-
             updateSyncStatus();
 
             // Refresh the resume list in case synced+completed matches were removed
             loadLocalInProgressMatches();
-        }
-
-        // Periodically check for pending matches and sync them
-        setInterval(function() {
-            if (!syncInProgress && OfflineStorage.isOnline() && !isDemoMode()) {
-                var pending = OfflineStorage.getPendingMatches();
-                if (pending.length > 0) {
-                    syncRetryCount = 0; // Reset retry count for periodic sync
-                    attemptSync();
-                }
-            }
-        }, 30000); // Check every 30 seconds
-
-        async function attemptPurge() {
-            try {
-                var purgeResult = await OfflineStorage.purgeVerifiedLocalStorage(db);
-                console.log('Purge result:', purgeResult);
-            } catch (err) {
-                console.error('Purge error:', err);
-            }
         }
 
         // ===== LOAD IN-PROGRESS MATCHES FROM LOCAL STORAGE =====

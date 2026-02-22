@@ -776,60 +776,6 @@
             border-color: var(--text-secondary);
             transform: scale(1.05);
         }
-
-        /* Error Type Modal */
-        .error-type-buttons {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
-
-        .error-type-btn {
-            font-family: 'Barlow Condensed', sans-serif;
-            padding: 18px 30px;
-            border: none;
-            border-radius: 8px;
-            font-size: 1.3rem;
-            font-weight: 700;
-            cursor: pointer;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            transition: all 0.3s;
-            color: white;
-            width: 100%;
-            position: relative;
-            overflow: hidden;
-        }
-
-        .error-type-btn:hover {
-            transform: scale(1.03);
-            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
-        }
-
-        .error-type-btn.serve-error { background: #dc2626; }
-        .error-type-btn.pass-error { background: #2563eb; }
-        .error-type-btn.penalty-error { background: #d97706; }
-
-        /* Error Tracking Table Section */
-        .error-tracking-section {
-            background: var(--bg-secondary);
-            border-radius: 12px;
-            padding: 25px;
-            border: 2px solid var(--border);
-            position: relative;
-            overflow: hidden;
-            margin-top: 30px;
-        }
-
-        .error-tracking-section::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            right: 0;
-            height: 4px;
-            background: linear-gradient(90deg, #991b1b, #dc2626);
-        }
     </style>
 </head>
 <body>
@@ -859,7 +805,7 @@
             <div class="section">
                 <div class="section-header">
                     <h2 class="section-title">Score Tracking</h2>
-                    <button class="undo-btn" id="score-undo-btn" onclick="undoLastAction()" disabled>
+                    <button class="undo-btn" id="score-undo-btn" onclick="undoLastScoreAction()" disabled>
                         <span>⟲</span>
                         <span class="undo-btn-text">Undo</span>
                     </button>
@@ -902,7 +848,7 @@
                         <div class="scoring-buttons">
                             <button class="score-btn serve" onclick="scorePoint(2, 'serve')">Serve</button>
                             <button class="score-btn kill" onclick="scorePoint(2, 'kill')">Kill</button>
-                            <button class="score-btn error" onclick="showErrorTypeModal()">Error</button>
+                            <button class="score-btn error" onclick="scorePoint(2, 'error')">Error</button>
                             <!-- TODO: Re-evaluate whether to restore the Opponent Block button here. Currently hidden because opponent blocks are recorded via Attack Tracking (player Block outcome) to avoid double-counting. -->
                             <button class="score-btn block" onclick="scorePoint(2, 'block')" style="display: none;">Block</button>
                         </div>
@@ -914,6 +860,10 @@
             <div class="section">
                 <div class="section-header">
                     <h2 class="section-title">Attack Tracking</h2>
+                    <button class="undo-btn" id="player-undo-btn" onclick="undoLastPlayerAction()" disabled>
+                        <span>⟲</span>
+                        <span class="undo-btn-text">Undo</span>
+                    </button>
                 </div>
 
                 <div class="player-grid">
@@ -1032,26 +982,6 @@
             </div>
         </div>
 
-        <!-- ERROR TRACKING TABLE -->
-        <div class="error-tracking-section">
-            <h2 class="section-title">Error Tracking</h2>
-            <div class="stats-table">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Set</th>
-                            <th>Hitting</th>
-                            <th>Serving</th>
-                            <th>Passing</th>
-                            <th>Penalty</th>
-                        </tr>
-                    </thead>
-                    <tbody id="error-tracking-body">
-                    </tbody>
-                </table>
-            </div>
-        </div>
-
         <div class="reset-section">
             <button class="reset-btn" onclick="resetAllStats()">Reset and Delete Match</button>
         </div>
@@ -1079,8 +1009,9 @@
         var matchInfo = null;
 
         // Undo history
-        var undoHistory = [];
-        var MAX_UNDO_HISTORY = 10;
+        var scoreUndoHistory = [];
+        var playerUndoHistory = [];
+        var MAX_UNDO_HISTORY = 5;
 
         // Track which sets have had the save prompt dismissed
         var setPromptDismissed = { 1: false, 2: false, 3: false };
@@ -1088,9 +1019,9 @@
         // Initialize match data structure
         var matchData = {
             sets: {
-                1: { team1: { score: 0, kills: 0, blocks: 0, serves: 0, errors: 0 }, team2: { score: 0, kills: 0, blocks: 0, serves: 0, errors: 0 }, attack_errors: 0, block_errors: 0, serve_errors: 0, pass_errors: 0, penalty_errors: 0 },
-                2: { team1: { score: 0, kills: 0, blocks: 0, serves: 0, errors: 0 }, team2: { score: 0, kills: 0, blocks: 0, serves: 0, errors: 0 }, attack_errors: 0, block_errors: 0, serve_errors: 0, pass_errors: 0, penalty_errors: 0 },
-                3: { team1: { score: 0, kills: 0, blocks: 0, serves: 0, errors: 0 }, team2: { score: 0, kills: 0, blocks: 0, serves: 0, errors: 0 }, attack_errors: 0, block_errors: 0, serve_errors: 0, pass_errors: 0, penalty_errors: 0 }
+                1: { team1: { score: 0, kills: 0, blocks: 0, serves: 0, errors: 0 }, team2: { score: 0, kills: 0, blocks: 0, serves: 0, errors: 0 } },
+                2: { team1: { score: 0, kills: 0, blocks: 0, serves: 0, errors: 0 }, team2: { score: 0, kills: 0, blocks: 0, serves: 0, errors: 0 } },
+                3: { team1: { score: 0, kills: 0, blocks: 0, serves: 0, errors: 0 }, team2: { score: 0, kills: 0, blocks: 0, serves: 0, errors: 0 } }
             },
             savedSets: []
         };
@@ -1206,12 +1137,7 @@
                                     team1_errors: s.team1_errors,
                                     team2_score: s.team2_score, team2_kills: s.team2_kills,
                                     team2_blocks: s.team2_blocks, team2_serves: s.team2_serves,
-                                    team2_errors: s.team2_errors,
-                                    attack_errors: s.attack_errors || 0,
-                                    block_errors: s.block_errors || 0,
-                                    serve_errors: s.serve_errors || 0,
-                                    pass_errors: s.pass_errors || 0,
-                                    penalty_errors: s.penalty_errors || 0
+                                    team2_errors: s.team2_errors
                                 };
                             });
                             OfflineStorage.saveSets(matchId, setsObj);
@@ -1273,12 +1199,7 @@
                             blocks: set.team2_blocks || 0,
                             serves: set.team2_serves || 0,
                             errors: set.team2_errors || 0
-                        },
-                        attack_errors: set.attack_errors || 0,
-                        block_errors: set.block_errors || 0,
-                        serve_errors: set.serve_errors || 0,
-                        pass_errors: set.pass_errors || 0,
-                        penalty_errors: set.penalty_errors || 0
+                        }
                     };
 
                     if (set.set_status === 'completed') {
@@ -1392,16 +1313,15 @@
 
         // ===== SCORE TRACKING =====
 
-        function scorePoint(team, method, errorType, skipUndo) {
+        function scorePoint(team, method) {
             var teamKey = 'team' + team;
 
-            if (!skipUndo) {
-                addToUndoHistory({
-                    player: null,
-                    score: { team: team, method: method, errorType: errorType || null },
-                    setNumber: currentSet
-                });
-            }
+            addToScoreUndoHistory({
+                type: 'score',
+                team: team,
+                method: method,
+                setNumber: currentSet
+            });
 
             matchData.sets[currentSet][teamKey].score++;
 
@@ -1409,11 +1329,6 @@
             else if (method === 'block') matchData.sets[currentSet][teamKey].blocks++;
             else if (method === 'serve') matchData.sets[currentSet][teamKey].serves++;
             else if (method === 'error') matchData.sets[currentSet][teamKey].errors++;
-
-            // Increment error subtype if specified
-            if (errorType) {
-                matchData.sets[currentSet][errorType + '_errors']++;
-            }
 
             updateScoreDisplay();
             autoSaveSet();
@@ -1434,71 +1349,6 @@
             document.getElementById('team2-blocks').textContent = set.team2.blocks;
             document.getElementById('team2-serves').textContent = set.team2.serves;
             document.getElementById('team2-errors').textContent = set.team2.errors;
-
-            updateErrorTrackingTable();
-        }
-
-        // ===== ERROR TYPE MODAL =====
-
-        function showErrorTypeModal() {
-            var overlay = document.createElement('div');
-            overlay.className = 'save-set-modal-overlay';
-            overlay.id = 'error-type-modal';
-            overlay.innerHTML = `
-                <div class="save-set-modal">
-                    <div class="save-set-modal-title">Error Type</div>
-                    <div class="error-type-buttons">
-                        <button class="error-type-btn serve-error" onclick="recordErrorType('serve')">Serve</button>
-                        <button class="error-type-btn pass-error" onclick="recordErrorType('pass')">Pass</button>
-                        <button class="error-type-btn penalty-error" onclick="recordErrorType('penalty')">Penalty</button>
-                    </div>
-                    <div style="margin-top: 15px;">
-                        <button class="save-set-modal-btn secondary" onclick="closeErrorTypeModal()">Cancel</button>
-                    </div>
-                </div>
-            `;
-            document.body.appendChild(overlay);
-        }
-
-        function recordErrorType(errorType) {
-            closeErrorTypeModal();
-            scorePoint(2, 'error', errorType);
-        }
-
-        function closeErrorTypeModal() {
-            var modal = document.getElementById('error-type-modal');
-            if (modal) modal.remove();
-        }
-
-        // ===== ERROR TRACKING TABLE =====
-
-        function updateErrorTrackingTable() {
-            var tbody = document.getElementById('error-tracking-body');
-            if (!tbody) return;
-
-            var html = '';
-            var maxSet = currentSet;
-            matchData.savedSets.forEach(function(s) {
-                if (s.setNum > maxSet) maxSet = s.setNum;
-            });
-
-            for (var s = 1; s <= maxSet; s++) {
-                var set = matchData.sets[s];
-                var hitting = (set.block_errors || 0) + (set.attack_errors || 0);
-                var serving = set.serve_errors || 0;
-                var passing = set.pass_errors || 0;
-                var penalty = set.penalty_errors || 0;
-
-                html += '<tr>';
-                html += '<td class="player-name">Set ' + s + '</td>';
-                html += '<td>' + hitting + '</td>';
-                html += '<td>' + serving + '</td>';
-                html += '<td>' + passing + '</td>';
-                html += '<td>' + penalty + '</td>';
-                html += '</tr>';
-            }
-
-            tbody.innerHTML = html;
         }
 
         // ===== AUTO-SAVE SET (LOCAL-FIRST) =====
@@ -1517,12 +1367,7 @@
                 team2_kills: set.team2.kills,
                 team2_blocks: set.team2.blocks,
                 team2_serves: set.team2.serves,
-                team2_errors: set.team2.errors,
-                attack_errors: set.attack_errors || 0,
-                block_errors: set.block_errors || 0,
-                serve_errors: set.serve_errors || 0,
-                pass_errors: set.pass_errors || 0,
-                penalty_errors: set.penalty_errors || 0
+                team2_errors: set.team2.errors
             };
 
             // Save to localStorage (always succeeds)
@@ -1607,12 +1452,7 @@
                 team2_kills: set.team2.kills,
                 team2_blocks: set.team2.blocks,
                 team2_serves: set.team2.serves,
-                team2_errors: set.team2.errors,
-                attack_errors: set.attack_errors || 0,
-                block_errors: set.block_errors || 0,
-                serve_errors: set.serve_errors || 0,
-                pass_errors: set.pass_errors || 0,
-                penalty_errors: set.penalty_errors || 0
+                team2_errors: set.team2.errors
             };
 
             // Save to localStorage
@@ -1651,7 +1491,8 @@
             }
 
             displaySetHistory();
-            clearUndoHistory();
+            clearScoreUndoHistory();
+            clearPlayerUndoHistory();
 
             if (currentSet < 3) {
                 switchSet(currentSet + 1);
@@ -1691,45 +1532,28 @@
         function recordOutcome(player, outcome, cardId) {
             var stats = playerStats[player];
 
-            // Build unified undo entry
-            var undoEntry = {
-                player: { name: player, attempts: 1, kills: 0, errors: 0 },
-                score: null,
-                setNumber: currentSet
-            };
+            addToPlayerUndoHistory({
+                type: 'player',
+                player: player,
+                outcome: outcome,
+                previousAttempts: stats.attempts,
+                previousKills: stats.kills,
+                previousErrors: stats.errors
+            });
 
             stats.attempts++;
             if (outcome === 'kill') {
                 stats.kills++;
-                undoEntry.player.kills = 1;
-                undoEntry.score = { team: 1, method: 'kill', errorType: null };
-                scorePoint(1, 'kill', null, true);
+                scorePoint(1, 'kill');
             } else if (outcome === 'error') {
                 stats.errors++;
-                undoEntry.player.errors = 1;
-                undoEntry.score = { team: 2, method: 'error', errorType: 'attack' };
-                scorePoint(2, 'error', 'attack', true);
+                scorePoint(2, 'error');
             } else if (outcome === 'block') {
                 stats.errors++;
-                undoEntry.player.errors = 1;
-                undoEntry.score = { team: 2, method: 'block', errorType: 'block' };
-                scorePoint(2, 'block', 'block', true);
+                scorePoint(2, 'block');
             }
-            // 'inplay' — only attempt incremented, no score change
-
-            addToUndoHistory(undoEntry);
 
             // Save to localStorage
-            savePlayerStatToStorage(player, stats);
-
-            updatePlayerStatsDisplay();
-
-            var card = document.getElementById(cardId);
-            card.classList.remove('expanded');
-            currentlyExpandedCard = null;
-        }
-
-        function savePlayerStatToStorage(player, stats) {
             OfflineStorage.savePlayerStat(matchId, player, {
                 attempts: stats.attempts,
                 kills: stats.kills,
@@ -1754,6 +1578,12 @@
                     console.warn('Save player stats to Supabase exception:', err);
                 });
             }
+
+            updatePlayerStatsDisplay();
+
+            var card = document.getElementById(cardId);
+            card.classList.remove('expanded');
+            currentlyExpandedCard = null;
         }
 
         function trackerSortArrowHTML(column) {
@@ -1777,8 +1607,8 @@
         function renderStatsTable() {
             var playersArray = Object.keys(playerStats).map(function(player) {
                 var stats = playerStats[player];
-                var killPct = stats.attempts > 0 ? (stats.kills / stats.attempts) : 0;
-                var hitPct = stats.attempts > 0 ? ((stats.kills - stats.errors) / stats.attempts) : 0;
+                var killPct = stats.attempts > 0 ? parseFloat(((stats.kills / stats.attempts) * 100).toFixed(1)) : 0;
+                var hitPct = stats.attempts > 0 ? parseFloat((((stats.kills - stats.errors) / stats.attempts) * 100).toFixed(1)) : 0;
                 return {
                     name: player,
                     attempts: stats.attempts,
@@ -1819,8 +1649,8 @@
             tableHTML += '</tr></thead><tbody>';
 
             sorted.forEach(function(player) {
-                var killPctDisplay = player.attempts > 0 ? player.killPct.toFixed(3).replace(/^(-?)0/, '$1') : '.000';
-                var hitPctDisplay = player.attempts > 0 ? player.hitPct.toFixed(3).replace(/^(-?)0/, '$1') : '.000';
+                var killPctDisplay = player.attempts > 0 ? player.killPct + '%' : '0%';
+                var hitPctDisplay = player.attempts > 0 ? player.hitPct + '%' : '0%';
                 tableHTML += '<tr>';
                 tableHTML += '<td class="player-name">' + player.name + '</td>';
                 tableHTML += '<td>' + player.attempts + '</td>';
@@ -1848,65 +1678,25 @@
 
         // ===== FINISH MATCH (LOCAL-FIRST) =====
 
-        async function finishMatch() {
+        function finishMatch() {
             if (!confirm('Are you ready to finish this match? This will mark the match as completed and return you to the home page.')) {
                 return;
             }
-
-            // Save current set data to localStorage before finishing
-            var set = matchData.sets[currentSet];
-            var setData = {
-                set_status: set.team1.score === 0 && set.team2.score === 0 ? 'in_progress' : (matchData.savedSets.find(function(s) { return s.setNum === currentSet; }) ? 'completed' : 'in_progress'),
-                team1_score: set.team1.score,
-                team1_kills: set.team1.kills,
-                team1_blocks: set.team1.blocks,
-                team1_serves: set.team1.serves,
-                team1_errors: set.team1.errors,
-                team2_score: set.team2.score,
-                team2_kills: set.team2.kills,
-                team2_blocks: set.team2.blocks,
-                team2_serves: set.team2.serves,
-                team2_errors: set.team2.errors,
-                attack_errors: set.attack_errors || 0,
-                block_errors: set.block_errors || 0,
-                serve_errors: set.serve_errors || 0,
-                pass_errors: set.pass_errors || 0,
-                penalty_errors: set.penalty_errors || 0
-            };
-            OfflineStorage.saveSet(matchId, currentSet, setData);
-
-            // Save all player stats to localStorage
-            Object.keys(playerStats).forEach(function(player) {
-                var stats = playerStats[player];
-                if (stats.attempts > 0 || stats.kills > 0 || stats.errors > 0) {
-                    OfflineStorage.savePlayerStat(matchId, player, {
-                        attempts: stats.attempts,
-                        kills: stats.kills,
-                        errors: stats.errors
-                    });
-                }
-            });
 
             // Update match status locally
             matchInfo.match_status = 'completed';
             matchInfo.sync_status = 'pending';
             OfflineStorage.saveMatch(matchInfo);
 
-            // Show syncing state on the finish button
-            var finishBtn = document.getElementById('finish-match-btn');
-            finishBtn.disabled = true;
-            finishBtn.textContent = 'Syncing...';
-
-            // Await sync to Supabase before navigating (skip in demo mode)
+            // Try to sync to Supabase in the background (skip in demo mode)
             if (db && !isDemoMode()) {
-                try {
-                    var success = await OfflineStorage.syncMatchToSupabase(db, matchId);
+                OfflineStorage.syncMatchToSupabase(db, matchId).then(function(success) {
                     if (success) {
                         OfflineStorage.markMatchSynced(matchId);
                     }
-                } catch (e) {
-                    console.warn('Sync on finish failed, will retry from home page:', e);
-                }
+                }).catch(function() {
+                    // Sync failed - that's OK
+                });
             }
 
             window.location.href = 'index.html';
@@ -1935,59 +1725,90 @@
             window.location.href = 'index.html';
         }
 
-        // ===== UNDO SYSTEM =====
+        // ===== SCORE UNDO =====
 
-        function addToUndoHistory(action) {
-            undoHistory.push(action);
-            if (undoHistory.length > MAX_UNDO_HISTORY) undoHistory.shift();
-            updateUndoButton();
+        function addToScoreUndoHistory(action) {
+            scoreUndoHistory.push(action);
+            if (scoreUndoHistory.length > MAX_UNDO_HISTORY) scoreUndoHistory.shift();
+            updateScoreUndoButton();
         }
 
-        function updateUndoButton() {
-            document.getElementById('score-undo-btn').disabled = undoHistory.length === 0;
+        function updateScoreUndoButton() {
+            document.getElementById('score-undo-btn').disabled = scoreUndoHistory.length === 0;
         }
 
-        function clearUndoHistory() {
-            undoHistory = [];
-            updateUndoButton();
+        function clearScoreUndoHistory() {
+            scoreUndoHistory = [];
+            updateScoreUndoButton();
         }
 
-        function undoLastAction() {
-            if (undoHistory.length === 0) return;
+        function undoLastScoreAction() {
+            if (scoreUndoHistory.length === 0) return;
 
-            var action = undoHistory.pop();
+            var action = scoreUndoHistory.pop();
+            var teamKey = 'team' + action.team;
+            var set = matchData.sets[action.setNumber];
 
-            // Undo player stats if applicable
-            if (action.player) {
-                var stats = playerStats[action.player.name];
-                stats.attempts -= action.player.attempts;
-                stats.kills -= action.player.kills;
-                stats.errors -= action.player.errors;
+            set[teamKey].score--;
+            if (action.method === 'kill') set[teamKey].kills--;
+            else if (action.method === 'block') set[teamKey].blocks--;
+            else if (action.method === 'serve') set[teamKey].serves--;
+            else if (action.method === 'error') set[teamKey].errors--;
 
-                savePlayerStatToStorage(action.player.name, stats);
-                updatePlayerStatsDisplay();
+            updateScoreDisplay();
+            autoSaveSet();
+            updateScoreUndoButton();
+        }
+
+        // ===== PLAYER UNDO =====
+
+        function addToPlayerUndoHistory(action) {
+            playerUndoHistory.push(action);
+            if (playerUndoHistory.length > MAX_UNDO_HISTORY) playerUndoHistory.shift();
+            updatePlayerUndoButton();
+        }
+
+        function updatePlayerUndoButton() {
+            document.getElementById('player-undo-btn').disabled = playerUndoHistory.length === 0;
+        }
+
+        function clearPlayerUndoHistory() {
+            playerUndoHistory = [];
+            updatePlayerUndoButton();
+        }
+
+        function undoLastPlayerAction() {
+            if (playerUndoHistory.length === 0) return;
+
+            var action = playerUndoHistory.pop();
+            var stats = playerStats[action.player];
+
+            stats.attempts = action.previousAttempts;
+            stats.kills = action.previousKills;
+            stats.errors = action.previousErrors;
+
+            // Save to localStorage
+            OfflineStorage.savePlayerStat(matchId, action.player, {
+                attempts: stats.attempts,
+                kills: stats.kills,
+                errors: stats.errors
+            });
+            OfflineStorage.markMatchPending(matchId);
+
+            // Try to sync to Supabase (skip in demo mode)
+            if (db && !isDemoMode()) {
+                db.from('player_stats').upsert({
+                    match_id: matchId,
+                    player_name: action.player,
+                    team_name: 'Des Moines Eclipse',
+                    attempts: stats.attempts,
+                    kills: stats.kills,
+                    errors: stats.errors
+                }, { onConflict: 'match_id,player_name' }).select().catch(function() {});
             }
 
-            // Undo score if applicable
-            if (action.score) {
-                var teamKey = 'team' + action.score.team;
-                var set = matchData.sets[action.setNumber];
-
-                set[teamKey].score--;
-                if (action.score.method === 'kill') set[teamKey].kills--;
-                else if (action.score.method === 'block') set[teamKey].blocks--;
-                else if (action.score.method === 'serve') set[teamKey].serves--;
-                else if (action.score.method === 'error') set[teamKey].errors--;
-
-                if (action.score.errorType) {
-                    set[action.score.errorType + '_errors']--;
-                }
-
-                updateScoreDisplay();
-                autoSaveSet();
-            }
-
-            updateUndoButton();
+            updatePlayerStatsDisplay();
+            updatePlayerUndoButton();
         }
 
         // ===== INITIALIZE =====

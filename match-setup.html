@@ -801,7 +801,7 @@
         }
 
         // ===== START MATCH (LOCAL-FIRST) =====
-        async function startMatch() {
+        function startMatch() {
             if (!selectedTeam || !selectedOpponent) return;
 
             var btn = document.getElementById('startMatchBtn');
@@ -828,19 +828,18 @@
             // Save to localStorage
             OfflineStorage.saveMatch(match);
 
-            // Await sync to Supabase before navigating (skip in demo mode)
+            // Try to sync to Supabase in the background (skip in demo mode)
             if (db && !isDemoMode()) {
-                try {
-                    var success = await OfflineStorage.syncMatchToSupabase(db, matchId);
+                OfflineStorage.syncMatchToSupabase(db, matchId).then(function(success) {
                     if (success) {
                         OfflineStorage.markMatchSynced(matchId);
                     }
-                } catch (e) {
-                    // Sync failed - match is saved locally and will retry later
-                }
+                }).catch(function() {
+                    // Sync failed - that's OK, it's saved locally
+                });
             }
 
-            // Navigate to tracker
+            // Navigate to tracker immediately (don't wait for sync)
             window.location.href = 'volleyball-tracker.html?matchId=' + encodeURIComponent(matchId);
         }
 
