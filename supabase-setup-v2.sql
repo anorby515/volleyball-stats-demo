@@ -23,6 +23,8 @@ CREATE TABLE matches (
     tournament TEXT,
     team1_name TEXT NOT NULL DEFAULT 'Des Moines Eclipse',
     opponent_name TEXT NOT NULL,
+    match_format TEXT NOT NULL DEFAULT 'bracket_play' CHECK (match_format IN ('bracket_play', 'pool_play')),
+    scoring_format TEXT CHECK (scoring_format IN ('0_to_21', '4_to_25')),
     match_status TEXT NOT NULL DEFAULT 'in_progress' CHECK (match_status IN ('in_progress', 'completed')),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -35,6 +37,8 @@ CREATE INDEX idx_matches_created ON matches(created_at DESC);
 
 COMMENT ON TABLE matches IS 'Main match records';
 COMMENT ON COLUMN matches.match_id IS 'Client-generated UUID';
+COMMENT ON COLUMN matches.match_format IS 'Format: bracket_play or pool_play';
+COMMENT ON COLUMN matches.scoring_format IS 'Pool play scoring: 0_to_21 or 4_to_25 (null for bracket play)';
 COMMENT ON COLUMN matches.match_status IS 'Status: in_progress or completed';
 
 -- ============================================================================
@@ -55,6 +59,11 @@ CREATE TABLE set_scores (
     team2_blocks INTEGER NOT NULL DEFAULT 0,
     team2_serves INTEGER NOT NULL DEFAULT 0,
     team2_errors INTEGER NOT NULL DEFAULT 0,
+    attack_errors INTEGER NOT NULL DEFAULT 0,
+    block_errors INTEGER NOT NULL DEFAULT 0,
+    serve_errors INTEGER NOT NULL DEFAULT 0,
+    pass_errors INTEGER NOT NULL DEFAULT 0,
+    penalty_errors INTEGER NOT NULL DEFAULT 0,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(match_id, set_number)

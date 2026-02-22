@@ -5,7 +5,7 @@
 // Strategy: Cache-first for app files, network-first for CDN resources.
 // ============================================================================
 
-var CACHE_NAME = 'vb-tracker-v6';
+var CACHE_NAME = 'vb-tracker-v10';
 
 var APP_SHELL_FILES = [
     './',
@@ -13,13 +13,15 @@ var APP_SHELL_FILES = [
     './match-setup.html',
     './volleyball-tracker.html',
     './analyze-stats.html',
+    './app-mode.js',
     './config.js',
     './offline-storage.js',
     './manifest.json'
 ];
 
 var CDN_URLS = [
-    'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2'
+    'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2',
+    'https://cdn.jsdelivr.net/npm/exceljs@4.4.0/dist/exceljs.min.js'
 ];
 
 // Install: pre-cache app shell files

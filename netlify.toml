@@ -1,6 +1,7 @@
 [build]
+  command = "echo 'var APP_MODE = \"production\";' > app-mode.js"
   publish = "."
-  
+
 [build.environment]
   NODE_VERSION = "18"
 

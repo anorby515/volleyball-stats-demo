@@ -213,7 +213,7 @@
           "name": "player_name",
           "type": "TEXT",
           "nullable": false,
-          "description": "Player name (Lexi, Anne, Cora, Amelie, Norah, Grace, Laura, Lila, Kjersten, Adelaide)"
+          "description": "Player name (Lexi, Anne, Cora, Amelie, Norah, Grace, Laura, Lila, Kjersten, Adelaide, Greta, Hannah)"
         },
         {
           "name": "attempts",

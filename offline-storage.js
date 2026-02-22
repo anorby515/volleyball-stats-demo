@@ -192,112 +192,171 @@ var OfflineStorage = (function() {
     // --- Sync to Supabase ---
 
     async function syncMatchToSupabase(db, matchId) {
+        console.log('[SYNC] Starting sync for match:', matchId);
+
+        if (!db) {
+            console.error('[SYNC] FAILED: db is null/undefined');
+            return false;
+        }
+
+        if (typeof isDemoMode === 'function' && isDemoMode()) {
+            console.log('[SYNC] SKIPPED: Demo mode');
+            return false;
+        }
+
         var match = getMatch(matchId);
-        if (!match) return false;
+        if (!match) {
+            console.error('[SYNC] FAILED: Match not found in localStorage for id:', matchId);
+            return false;
+        }
+
+        console.log('[SYNC] Match data from localStorage:', JSON.stringify(match));
 
         try {
             // 1. Upsert match
-            var { error: matchError } = await db
+            var matchPayload = {
+                match_id: match.match_id,
+                tournament: match.tournament || null,
+                team1_name: match.team1_name,
+                opponent_name: match.opponent_name,
+                match_format: match.match_format || 'bracket_play',
+                scoring_format: match.scoring_format || null,
+                match_status: match.match_status,
+                created_at: match.created_at
+            };
+            console.log('[SYNC] Step 1: Upserting match:', JSON.stringify(matchPayload));
+
+            var matchResult = await db
                 .from('matches')
-                .upsert({
-                    match_id: match.match_id,
-                    tournament: match.tournament || null,
-                    team1_name: match.team1_name,
-                    opponent_name: match.opponent_name,
-                    match_status: match.match_status,
-                    created_at: match.created_at
-                }, {
+                .upsert(matchPayload, {
                     onConflict: 'match_id'
                 });
 
-            if (matchError) {
-                console.error('Sync match error:', matchError);
+            console.log('[SYNC] Step 1 result:', JSON.stringify(matchResult));
+
+            if (matchResult.error) {
+                console.error('[SYNC] FAILED at Step 1 (match upsert):', matchResult.error.message, matchResult.error);
                 return false;
             }
+
+            console.log('[SYNC] Step 1 SUCCESS: Match upserted');
 
             // 2. Upsert all sets
             var sets = getSets(matchId);
             var setNumbers = Object.keys(sets);
+            console.log('[SYNC] Step 2: Upserting', setNumbers.length, 'sets:', setNumbers);
+
             for (var i = 0; i < setNumbers.length; i++) {
                 var setNum = setNumbers[i];
                 var setData = sets[setNum];
-                var { error: setError } = await db
+                var setPayload = {
+                    match_id: matchId,
+                    set_number: parseInt(setNum),
+                    set_status: setData.set_status || 'in_progress',
+                    team1_score: setData.team1_score || 0,
+                    team1_kills: setData.team1_kills || 0,
+                    team1_blocks: setData.team1_blocks || 0,
+                    team1_serves: setData.team1_serves || 0,
+                    team1_errors: setData.team1_errors || 0,
+                    team2_score: setData.team2_score || 0,
+                    team2_kills: setData.team2_kills || 0,
+                    team2_blocks: setData.team2_blocks || 0,
+                    team2_serves: setData.team2_serves || 0,
+                    team2_errors: setData.team2_errors || 0,
+                    attack_errors: setData.attack_errors || 0,
+                    block_errors: setData.block_errors || 0,
+                    serve_errors: setData.serve_errors || 0,
+                    pass_errors: setData.pass_errors || 0,
+                    penalty_errors: setData.penalty_errors || 0
+                };
+                console.log('[SYNC] Step 2: Upserting set', setNum, ':', JSON.stringify(setPayload));
+
+                var setResult = await db
                     .from('set_scores')
-                    .upsert({
-                        match_id: matchId,
-                        set_number: parseInt(setNum),
-                        set_status: setData.set_status || 'in_progress',
-                        team1_score: setData.team1_score || 0,
-                        team1_kills: setData.team1_kills || 0,
-                        team1_blocks: setData.team1_blocks || 0,
-                        team1_serves: setData.team1_serves || 0,
-                        team1_errors: setData.team1_errors || 0,
-                        team2_score: setData.team2_score || 0,
-                        team2_kills: setData.team2_kills || 0,
-                        team2_blocks: setData.team2_blocks || 0,
-                        team2_serves: setData.team2_serves || 0,
-                        team2_errors: setData.team2_errors || 0
-                    }, {
+                    .upsert(setPayload, {
                         onConflict: 'match_id,set_number'
                     });
 
-                if (setError) {
-                    console.error('Sync set error:', setError);
+                console.log('[SYNC] Step 2 set', setNum, 'result:', JSON.stringify(setResult));
+
+                if (setResult.error) {
+                    console.error('[SYNC] FAILED at Step 2 (set ' + setNum + ' upsert):', setResult.error.message, setResult.error);
                     return false;
                 }
             }
+
+            console.log('[SYNC] Step 2 SUCCESS: All sets upserted');
 
             // 3. Upsert player stats
             var playerStats = getAllPlayerStats(matchId);
             var playerNames = Object.keys(playerStats);
+            console.log('[SYNC] Step 3: Upserting player stats for', playerNames.length, 'players');
+
             for (var j = 0; j < playerNames.length; j++) {
                 var name = playerNames[j];
                 var stats = playerStats[name];
                 if (stats.attempts === 0 && stats.kills === 0 && stats.errors === 0) {
-                    continue; // Skip players with no data
+                    console.log('[SYNC] Step 3: Skipping player', name, '(no data)');
+                    continue;
                 }
-                var { error: playerError } = await db
+                var playerPayload = {
+                    match_id: matchId,
+                    player_name: name,
+                    team_name: 'Des Moines Eclipse',
+                    attempts: stats.attempts,
+                    kills: stats.kills,
+                    errors: stats.errors
+                };
+                console.log('[SYNC] Step 3: Upserting player', name, ':', JSON.stringify(playerPayload));
+
+                var playerResult = await db
                     .from('player_stats')
-                    .upsert({
-                        match_id: matchId,
-                        player_name: name,
-                        team_name: 'Des Moines Eclipse',
-                        attempts: stats.attempts,
-                        kills: stats.kills,
-                        errors: stats.errors
-                    }, {
+                    .upsert(playerPayload, {
                         onConflict: 'match_id,player_name'
                     });
 
-                if (playerError) {
-                    console.error('Sync player stats error:', playerError);
+                console.log('[SYNC] Step 3 player', name, 'result:', JSON.stringify(playerResult));
+
+                if (playerResult.error) {
+                    console.error('[SYNC] FAILED at Step 3 (player ' + name + ' upsert):', playerResult.error.message, playerResult.error);
                     return false;
                 }
             }
 
+            console.log('[SYNC] SUCCESS: All data synced for match', matchId);
             return true;
 
         } catch (err) {
-            console.error('Sync exception:', err);
+            console.error('[SYNC] EXCEPTION:', err.message, err);
             return false;
         }
     }
 
     async function syncAllPending(db) {
+        console.log('[SYNC-ALL] Starting syncAllPending, db:', db ? 'initialized' : 'NULL');
+
         if (!db) return { synced: 0, failed: 0 };
+        if (typeof isDemoMode === 'function' && isDemoMode()) {
+            console.log('[SYNC-ALL] Skipped: demo mode');
+            return { synced: 0, failed: 0 };
+        }
 
         var pending = getPendingMatches();
+        console.log('[SYNC-ALL] Found', pending.length, 'pending matches:', pending.map(function(m) { return m.match_id + ' (' + m.match_status + ')'; }));
         var synced = 0;
         var failed = 0;
 
         for (var i = 0; i < pending.length; i++) {
             var match = pending[i];
+            console.log('[SYNC-ALL] Syncing match', (i + 1), 'of', pending.length, ':', match.match_id);
             var success = await syncMatchToSupabase(db, match.match_id);
             if (success) {
                 markMatchSynced(match.match_id);
                 synced++;
+                console.log('[SYNC-ALL] Match', match.match_id, 'synced and marked');
             } else {
                 failed++;
+                console.warn('[SYNC-ALL] Match', match.match_id, 'FAILED to sync');
             }
         }
 
@@ -305,7 +364,67 @@ var OfflineStorage = (function() {
             setLastSyncTime();
         }
 
+        console.log('[SYNC-ALL] Complete:', synced, 'synced,', failed, 'failed');
         return { synced: synced, failed: failed };
+    }
+
+    // --- Purge Verified Local Storage ---
+
+    async function purgeVerifiedLocalStorage(db) {
+        if (!db) return { purged: false, reason: 'no-db' };
+        if (typeof isDemoMode === 'function' && isDemoMode()) {
+            return { purged: false, reason: 'demo-mode' };
+        }
+
+        // Don't purge if there are still pending matches
+        var pending = getPendingMatches();
+        if (pending.length > 0) {
+            return { purged: false, reason: 'pending-matches', count: pending.length };
+        }
+
+        var allMatches = getAllMatches();
+        var matchIds = Object.keys(allMatches);
+
+        // Find any completed matches still lingering locally
+        // (edge case — markMatchSynced should have removed these, but verify)
+        var completedToVerify = [];
+        matchIds.forEach(function(id) {
+            if (allMatches[id].match_status === 'completed') {
+                completedToVerify.push(id);
+            }
+        });
+
+        // Verify each completed match exists in Supabase before removing locally
+        for (var i = 0; i < completedToVerify.length; i++) {
+            var matchId = completedToVerify[i];
+            try {
+                var result = await db
+                    .from('matches')
+                    .select('match_id')
+                    .eq('match_id', matchId)
+                    .single();
+
+                if (result.error || !result.data) {
+                    // Completed match not found in Supabase — abort entire purge
+                    console.warn('Purge aborted: completed match not verified in Supabase:', matchId);
+                    return { purged: false, reason: 'verification-failed', matchId: matchId };
+                }
+
+                // Verified in Supabase — safe to remove locally
+                removeMatch(matchId);
+                console.log('Purge: removed verified completed match:', matchId);
+            } catch (err) {
+                console.error('Purge verification error:', err);
+                return { purged: false, reason: 'verification-error', error: err.message };
+            }
+        }
+
+        // All completed matches verified and removed. Clear caches.
+        localStorage.removeItem('vb_cached_opponents');
+        localStorage.removeItem('vb_cached_tournaments');
+
+        console.log('Local storage purge complete. Removed caches and ' + completedToVerify.length + ' completed match(es).');
+        return { purged: true, completedRemoved: completedToVerify.length };
     }
 
     // --- Connectivity ---
@@ -345,6 +464,7 @@ var OfflineStorage = (function() {
         markMatchPending: markMatchPending,
         syncMatchToSupabase: syncMatchToSupabase,
         syncAllPending: syncAllPending,
+        purgeVerifiedLocalStorage: purgeVerifiedLocalStorage,
 
         // Cache
         cacheOpponents: cacheOpponents,
