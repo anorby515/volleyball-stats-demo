@@ -6,7 +6,7 @@
 // ============================================================================
 
 // Cache version derived from APP_VERSION in config.js — keep in sync
-var CACHE_NAME = 'vb-tracker-v2.2.0';
+var CACHE_NAME = 'vb-tracker-v2.2.1';
 
 var APP_SHELL_FILES = [
     './',

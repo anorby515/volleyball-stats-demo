@@ -37,8 +37,8 @@ describe('config.js', function() {
             expect(global.APP_VERSION).toMatch(/^\d+\.\d+\.\d+$/);
         });
 
-        test('is currently 2.2.0', function() {
-            expect(global.APP_VERSION).toBe('2.2.0');
+        test('is currently 2.2.1', function() {
+            expect(global.APP_VERSION).toBe('2.2.1');
         });
     });
 

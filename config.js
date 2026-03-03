@@ -1,6 +1,6 @@
 // App Version - single source of truth for the entire application
 // See CLAUDE.md for versioning rules (major.minor.patch)
-var APP_VERSION = '2.2.0';
+var APP_VERSION = '2.2.1';
 
 // Supabase Configuration
 // This file contains the connection details for your Supabase database

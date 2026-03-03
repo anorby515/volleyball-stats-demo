@@ -1,5 +1,5 @@
 [build]
-  command = "echo 'var APP_MODE = \"production\";' > app-mode.js"
+  command = "echo \"var APP_MODE = '${APP_MODE:-production}';\" > app-mode.js"
   publish = "."
 
 [build.environment]
