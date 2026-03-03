@@ -14,7 +14,6 @@ var APP_SHELL_FILES = [
     './match-setup.html',
     './volleyball-tracker.html',
     './analyze-stats.html',
-    './app-mode.js',
     './config.js',
     './offline-storage.js',
     './manifest.json'
@@ -93,24 +92,10 @@ self.addEventListener('fetch', function(event) {
         return;
     }
 
-    // For app-mode.js: network-first so Netlify build changes take effect immediately.
-    // Falls back to cache only when offline.
-    if (url.pathname.endsWith('/app-mode.js') || url.pathname === '/app-mode.js') {
-        event.respondWith(
-            fetch(event.request).then(function(response) {
-                var responseClone = response.clone();
-                caches.open(CACHE_NAME).then(function(cache) {
-                    cache.put(event.request, responseClone);
-                });
-                return response;
-            }).catch(function() {
-                return caches.match(event.request).then(function(cachedResponse) {
-                    return cachedResponse || new Response('var APP_MODE = "production";', {
-                        headers: { 'Content-Type': 'application/javascript' }
-                    });
-                });
-            })
-        );
+    // app-mode.js is never cached — always fetch from network so build-time
+    // changes (demo vs production) take effect immediately without SW cache issues
+    if (url.pathname.endsWith('/app-mode.js')) {
+        event.respondWith(fetch(event.request));
         return;
     }
 

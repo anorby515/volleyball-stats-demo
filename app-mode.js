@@ -3,3 +3,4 @@
 // Production: var APP_MODE = 'production';
 // Demo:       var APP_MODE = 'demo';
 var APP_MODE = 'demo';
+console.log('[app-mode.js] APP_MODE loaded:', APP_MODE);

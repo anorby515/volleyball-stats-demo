@@ -484,7 +484,8 @@
             // Always load local in-progress matches (works offline)
             loadLocalInProgressMatches();
 
-            // In demo mode: show banner, cleanup stale demo data, hide sync bar, skip syncing
+            // In demo mode: hide sync bar, skip syncing
+            console.log('[index] isDemoMode:', isDemoMode(), '| APP_MODE:', typeof APP_MODE !== 'undefined' ? APP_MODE : 'UNDEFINED');
             if (isDemoMode()) {
                 document.getElementById('demo-banner').style.display = 'block';
                 document.getElementById('app-version').textContent = 'v' + APP_VERSION + ' — DEMO';
