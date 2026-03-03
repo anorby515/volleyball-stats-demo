@@ -1797,8 +1797,8 @@
                     ? `<span class="tournament-name">${esc(match.tournament)}</span><br>${opponentDisplay}<br>${dateDisplay}${localBadge}`
                     : `${opponentDisplay}<br>${dateDisplay}${localBadge}`;
 
-                // Delete button (appears on first row only)
-                const deleteButton = `<button class="delete-match-btn" onclick="deleteMatch('${esc(match.match_id)}')" title="Delete match">🗑️</button>`;
+                // Delete button (appears on first row only, hidden in demo mode)
+                const deleteButton = isDemoMode() ? '' : `<button class="delete-match-btn" onclick="deleteMatch('${esc(match.match_id)}')" title="Delete match">🗑️</button>`;
 
                 // First row - Set 1
                 const firstSet = sets[0];
