@@ -1,3 +1,7 @@
+// App Version - single source of truth for the entire application
+// See CLAUDE.md for versioning rules (major.minor.patch)
+var APP_VERSION = '2.2.0';
+
 // Supabase Configuration
 // This file contains the connection details for your Supabase database
 
@@ -42,6 +46,21 @@ var GOOGLE_CONFIG = {
 // Check if running in demo mode (read-only, no Supabase writes)
 function isDemoMode() {
     return typeof APP_MODE !== 'undefined' && APP_MODE === 'demo';
+}
+
+// Show visible indicator when running in demo mode
+function showDemoModeIndicator() {
+    if (!isDemoMode()) return;
+    var banner = document.createElement('div');
+    banner.id = 'demo-mode-banner';
+    banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;padding:6px;background:#ffc107;color:#000;text-align:center;z-index:9999;font-family:sans-serif;font-size:13px;font-weight:bold;';
+    banner.textContent = 'DEMO MODE — Data is local only and will not sync';
+    document.body.appendChild(banner);
+}
+
+// Run on page load for all pages
+if (typeof window !== 'undefined') {
+    window.addEventListener('DOMContentLoaded', showDemoModeIndicator);
 }
 
 // Register service worker for offline PWA support

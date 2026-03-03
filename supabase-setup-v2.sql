@@ -5,6 +5,9 @@
 --   - match_id changed from TIMESTAMPTZ to UUID (client-generated)
 --   - added set_status column to set_scores
 --   - match_status CHECK constraint includes 'in_progress' and 'completed'
+--   - CHECK (>= 0) on all integer stat columns
+--   - char_length() limits (100) on all text name columns
+--   - serves, aces, serve_errors columns on player_stats
 --
 -- Run this script in Supabase SQL Editor to create all tables and triggers.
 -- WARNING: This drops all existing tables. Run only on a fresh setup.
@@ -20,9 +23,9 @@ DROP TABLE IF EXISTS matches CASCADE;
 -- ============================================================================
 CREATE TABLE matches (
     match_id UUID PRIMARY KEY,
-    tournament TEXT,
-    team1_name TEXT NOT NULL DEFAULT 'Des Moines Eclipse',
-    opponent_name TEXT NOT NULL,
+    tournament TEXT CONSTRAINT chk_tournament_len CHECK (tournament IS NULL OR char_length(tournament) <= 100),
+    team1_name TEXT NOT NULL DEFAULT 'Des Moines Eclipse' CONSTRAINT chk_team1_name_len CHECK (char_length(team1_name) <= 100),
+    opponent_name TEXT NOT NULL CONSTRAINT chk_opponent_name_len CHECK (char_length(opponent_name) <= 100),
     match_format TEXT NOT NULL DEFAULT 'bracket_play' CHECK (match_format IN ('bracket_play', 'pool_play')),
     scoring_format TEXT CHECK (scoring_format IN ('0_to_21', '4_to_25')),
     match_status TEXT NOT NULL DEFAULT 'in_progress' CHECK (match_status IN ('in_progress', 'completed')),
@@ -49,21 +52,21 @@ CREATE TABLE set_scores (
     match_id UUID NOT NULL REFERENCES matches(match_id) ON DELETE CASCADE,
     set_number INTEGER NOT NULL CHECK (set_number BETWEEN 1 AND 3),
     set_status TEXT NOT NULL DEFAULT 'in_progress' CHECK (set_status IN ('in_progress', 'completed')),
-    team1_score INTEGER NOT NULL DEFAULT 0,
-    team1_kills INTEGER NOT NULL DEFAULT 0,
-    team1_blocks INTEGER NOT NULL DEFAULT 0,
-    team1_serves INTEGER NOT NULL DEFAULT 0,
-    team1_errors INTEGER NOT NULL DEFAULT 0,
-    team2_score INTEGER NOT NULL DEFAULT 0,
-    team2_kills INTEGER NOT NULL DEFAULT 0,
-    team2_blocks INTEGER NOT NULL DEFAULT 0,
-    team2_serves INTEGER NOT NULL DEFAULT 0,
-    team2_errors INTEGER NOT NULL DEFAULT 0,
-    attack_errors INTEGER NOT NULL DEFAULT 0,
-    block_errors INTEGER NOT NULL DEFAULT 0,
-    serve_errors INTEGER NOT NULL DEFAULT 0,
-    pass_errors INTEGER NOT NULL DEFAULT 0,
-    penalty_errors INTEGER NOT NULL DEFAULT 0,
+    team1_score INTEGER NOT NULL DEFAULT 0 CONSTRAINT chk_set_team1_score_nonneg CHECK (team1_score >= 0),
+    team1_kills INTEGER NOT NULL DEFAULT 0 CONSTRAINT chk_set_team1_kills_nonneg CHECK (team1_kills >= 0),
+    team1_blocks INTEGER NOT NULL DEFAULT 0 CONSTRAINT chk_set_team1_blocks_nonneg CHECK (team1_blocks >= 0),
+    team1_serves INTEGER NOT NULL DEFAULT 0 CONSTRAINT chk_set_team1_serves_nonneg CHECK (team1_serves >= 0),
+    team1_errors INTEGER NOT NULL DEFAULT 0 CONSTRAINT chk_set_team1_errors_nonneg CHECK (team1_errors >= 0),
+    team2_score INTEGER NOT NULL DEFAULT 0 CONSTRAINT chk_set_team2_score_nonneg CHECK (team2_score >= 0),
+    team2_kills INTEGER NOT NULL DEFAULT 0 CONSTRAINT chk_set_team2_kills_nonneg CHECK (team2_kills >= 0),
+    team2_blocks INTEGER NOT NULL DEFAULT 0 CONSTRAINT chk_set_team2_blocks_nonneg CHECK (team2_blocks >= 0),
+    team2_serves INTEGER NOT NULL DEFAULT 0 CONSTRAINT chk_set_team2_serves_nonneg CHECK (team2_serves >= 0),
+    team2_errors INTEGER NOT NULL DEFAULT 0 CONSTRAINT chk_set_team2_errors_nonneg CHECK (team2_errors >= 0),
+    attack_errors INTEGER NOT NULL DEFAULT 0 CONSTRAINT chk_set_attack_errors_nonneg CHECK (attack_errors >= 0),
+    block_errors INTEGER NOT NULL DEFAULT 0 CONSTRAINT chk_set_block_errors_nonneg CHECK (block_errors >= 0),
+    serve_errors INTEGER NOT NULL DEFAULT 0 CONSTRAINT chk_set_serve_errors_nonneg CHECK (serve_errors >= 0),
+    pass_errors INTEGER NOT NULL DEFAULT 0 CONSTRAINT chk_set_pass_errors_nonneg CHECK (pass_errors >= 0),
+    penalty_errors INTEGER NOT NULL DEFAULT 0 CONSTRAINT chk_set_penalty_errors_nonneg CHECK (penalty_errors >= 0),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(match_id, set_number)
@@ -82,11 +85,14 @@ COMMENT ON COLUMN set_scores.set_status IS 'Status: in_progress or completed';
 CREATE TABLE player_stats (
     stat_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     match_id UUID NOT NULL REFERENCES matches(match_id) ON DELETE CASCADE,
-    player_name TEXT NOT NULL,
-    team_name TEXT NOT NULL DEFAULT 'Des Moines Eclipse',
-    attempts INTEGER NOT NULL DEFAULT 0,
-    kills INTEGER NOT NULL DEFAULT 0,
-    errors INTEGER NOT NULL DEFAULT 0,
+    player_name TEXT NOT NULL CONSTRAINT chk_player_name_len CHECK (char_length(player_name) <= 100),
+    team_name TEXT NOT NULL DEFAULT 'Des Moines Eclipse' CONSTRAINT chk_team_name_len CHECK (char_length(team_name) <= 100),
+    attempts INTEGER NOT NULL DEFAULT 0 CONSTRAINT chk_ps_attempts_nonneg CHECK (attempts >= 0),
+    kills INTEGER NOT NULL DEFAULT 0 CONSTRAINT chk_ps_kills_nonneg CHECK (kills >= 0),
+    errors INTEGER NOT NULL DEFAULT 0 CONSTRAINT chk_ps_errors_nonneg CHECK (errors >= 0),
+    serves INTEGER NOT NULL DEFAULT 0 CONSTRAINT chk_ps_serves_nonneg CHECK (serves >= 0),
+    aces INTEGER NOT NULL DEFAULT 0 CONSTRAINT chk_ps_aces_nonneg CHECK (aces >= 0),
+    serve_errors INTEGER NOT NULL DEFAULT 0 CONSTRAINT chk_ps_serve_errors_nonneg CHECK (serve_errors >= 0),
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
     UNIQUE(match_id, player_name)
@@ -98,6 +104,9 @@ CREATE INDEX idx_player_stats_name ON player_stats(player_name);
 CREATE INDEX idx_player_stats_team ON player_stats(team_name);
 
 COMMENT ON TABLE player_stats IS 'Individual player statistics accumulated across all sets in a match';
+COMMENT ON COLUMN player_stats.serves IS 'Total serves attempted';
+COMMENT ON COLUMN player_stats.aces IS 'Total aces';
+COMMENT ON COLUMN player_stats.serve_errors IS 'Total serve errors';
 
 -- ============================================================================
 -- TRIGGER: Auto-update updated_at timestamps

@@ -95,6 +95,7 @@
             width: 100%;
             padding: 20px;
             padding-top: 50px;
+            padding-bottom: 50px;
             text-align: center;
             animation: fadeIn 0.8s ease-out;
         }
@@ -311,6 +312,22 @@
             font-weight: 500;
         }
 
+        .resume-match-stale {
+            color: #dc3545;
+        }
+
+        .resume-match-delete {
+            margin-top: 8px;
+            padding: 4px 12px;
+            background: #dc3545;
+            color: #fff;
+            border: none;
+            border-radius: 4px;
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 0.85rem;
+            cursor: pointer;
+        }
+
         .resume-match-sets {
             display: flex;
             gap: 8px;
@@ -362,6 +379,23 @@
             color: white;
         }
 
+        .app-version {
+            position: fixed;
+            bottom: 10px;
+            left: 0;
+            right: 0;
+            text-align: center;
+            font-family: 'Barlow Condensed', sans-serif;
+            font-size: 1.125rem;
+            font-weight: 600;
+            color: var(--accent-primary);
+            letter-spacing: 0.5px;
+            white-space: nowrap;
+            pointer-events: none;
+            user-select: none;
+            z-index: 999;
+        }
+
         @media (max-width: 768px) {
             .app-title {
                 font-size: 2.5rem;
@@ -380,6 +414,8 @@
 <body>
     <!-- Sync Status Bar -->
     <div class="sync-status-bar hidden" id="sync-status-bar"></div>
+
+    <div class="app-version" id="app-version"></div>
 
     <div class="container">
         <h1 class="app-title">Stat Tracker</h1>
@@ -418,6 +454,9 @@
 
         // Initialize on page load
         window.addEventListener('DOMContentLoaded', function() {
+            // Display app version
+            document.getElementById('app-version').textContent = 'v' + APP_VERSION;
+
             // Try to initialize Supabase (may be null if offline)
             db = tryInitSupabase();
 
@@ -612,11 +651,11 @@
                 }
             }
 
-            syncInProgress = false;
-
             // After sync completes, attempt purge if everything is synced
+            // Keep syncInProgress=true to prevent re-entrant sync during purge
             await attemptPurge();
 
+            syncInProgress = false;
             updateSyncStatus();
 
             // Refresh the resume list in case synced+completed matches were removed
@@ -642,6 +681,10 @@
                 console.error('Purge error:', err);
             }
         }
+
+        // ===== STALE LOCK CLEANUP =====
+        // Clean up any locks from tabs that crashed or navigated away
+        OfflineStorage.clearStaleLocks();
 
         // ===== LOAD IN-PROGRESS MATCHES FROM LOCAL STORAGE =====
 
@@ -730,7 +773,8 @@
                 });
 
                 // Build the display text
-                var displayHTML = '<div class="resume-match-teams">' + match.team1_name + ' vs. ' + match.opponent_name;
+                var esc = OfflineStorage.escapeHTML;
+                var displayHTML = '<div class="resume-match-teams">' + esc(match.team1_name) + ' vs. ' + esc(match.opponent_name);
 
                 // Show sync badge if pending
                 if (match.sync_status === 'pending') {
@@ -744,7 +788,15 @@
                     displayHTML += '<div class="resume-match-format">' + match.formatLabel + '</div>';
                 }
 
-                displayHTML += '<div class="resume-match-time">Started at ' + timeStr + '</div>';
+                // Show age warning for old matches
+                var ageMs = Date.now() - matchDate.getTime();
+                var ageDays = Math.floor(ageMs / (1000 * 60 * 60 * 24));
+                if (ageDays >= 1) {
+                    var ageLabel = ageDays === 1 ? '1 day ago' : ageDays + ' days ago';
+                    displayHTML += '<div class="resume-match-time resume-match-stale">Started ' + ageLabel + '</div>';
+                } else {
+                    displayHTML += '<div class="resume-match-time">Started at ' + timeStr + '</div>';
+                }
 
                 // Show set history
                 if (match.setHistory.length > 0) {
@@ -758,10 +810,32 @@
                 }
 
                 matchBtn.innerHTML = displayHTML;
+
+                // Add delete button for abandoned matches (3+ days old)
+                if (ageDays >= 3) {
+                    var deleteBtn = document.createElement('button');
+                    deleteBtn.className = 'resume-match-delete';
+                    deleteBtn.textContent = 'Delete';
+                    deleteBtn.onclick = function(e) {
+                        e.stopPropagation();
+                        deleteAbandonedMatch(match.match_id, match.opponent_name);
+                    };
+                    matchBtn.appendChild(deleteBtn);
+                }
+
                 listDiv.appendChild(matchBtn);
             });
 
             container.style.display = 'block';
+        }
+
+        // Delete an abandoned match from localStorage
+        function deleteAbandonedMatch(matchId, opponentName) {
+            if (!confirm('Delete abandoned match vs ' + (opponentName || 'Unknown') + '? This cannot be undone.')) {
+                return;
+            }
+            OfflineStorage.removeMatch(matchId);
+            loadLocalInProgressMatches();
         }
 
         // Resume a match

@@ -418,7 +418,7 @@
             </div>
             <button class="new-item-btn" id="newOpponentBtn" onclick="showNewOpponent()">+ New Opponent</button>
             <div class="new-item-inline" id="newOpponentInline">
-                <input type="text" class="new-item-input" id="newOpponentInput" placeholder="Enter opponent name">
+                <input type="text" class="new-item-input" id="newOpponentInput" placeholder="Enter opponent name" maxlength="100">
                 <button class="new-item-confirm" onclick="confirmNewOpponent()">Add</button>
                 <button class="new-item-cancel" onclick="cancelNewOpponent()">Cancel</button>
             </div>
@@ -435,7 +435,7 @@
             </div>
             <button class="new-item-btn" id="newTournamentBtn" onclick="showNewTournament()">+ New Tournament</button>
             <div class="new-item-inline" id="newTournamentInline">
-                <input type="text" class="new-item-input" id="newTournamentInput" placeholder="Enter tournament name">
+                <input type="text" class="new-item-input" id="newTournamentInput" placeholder="Enter tournament name" maxlength="100">
                 <button class="new-item-confirm" onclick="confirmNewTournament()">Add</button>
                 <button class="new-item-cancel" onclick="cancelNewTournament()">Cancel</button>
             </div>
@@ -445,8 +445,8 @@
         <div class="setup-section">
             <div class="section-label">Match Format</div>
             <div class="card-grid" id="formatGrid">
-                <div class="selectable-card" data-format="pool_play" onclick="selectFormat(this)">Pool<div class="format-subtext">21 pts</div></div>
-                <div class="selectable-card" data-format="bracket_play" onclick="selectFormat(this)">Bracket<div class="format-subtext">25 pts</div></div>
+                <div class="selectable-card" data-format="pool_play" onclick="selectFormat(this)">21 pts</div>
+                <div class="selectable-card" data-format="bracket_play" onclick="selectFormat(this)">25 pts</div>
             </div>
         </div>
 
@@ -592,6 +592,10 @@
                 alert('Please enter an opponent name');
                 return;
             }
+            if (name.length > 100) {
+                alert('Opponent name must be 100 characters or less');
+                return;
+            }
 
             var existing = document.querySelector('#opponentGrid .selectable-card[data-opponent="' + CSS.escape(name) + '"]');
             if (existing) {
@@ -730,6 +734,10 @@
                 alert('Please enter a tournament name');
                 return;
             }
+            if (name.length > 100) {
+                alert('Tournament name must be 100 characters or less');
+                return;
+            }
 
             var existing = document.querySelector('#tournamentGrid .selectable-card[data-tournament="' + CSS.escape(name) + '"]');
             if (existing) {
@@ -822,7 +830,8 @@
                 scoring_format: selectedFormat === 'pool_play' ? selectedScoringFormat : null,
                 match_status: 'in_progress',
                 sync_status: 'pending',
-                created_at: now
+                created_at: now,
+                app_version: APP_VERSION
             };
 
             // Save to localStorage

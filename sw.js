@@ -5,7 +5,8 @@
 // Strategy: Cache-first for app files, network-first for CDN resources.
 // ============================================================================
 
-var CACHE_NAME = 'vb-tracker-v10';
+// Cache version derived from APP_VERSION in config.js — keep in sync
+var CACHE_NAME = 'vb-tracker-v2.2.0';
 
 var APP_SHELL_FILES = [
     './',

@@ -7,7 +7,7 @@
 // localStorage keys:
 //   vb_matches            → { matchId: { match data + sync_status } }
 //   vb_sets_{matchId}     → { setNumber: { set data } }
-//   vb_players_{matchId}  → { playerName: { attempts, kills, errors } }
+//   vb_players_{matchId}  → { playerName: { attempts, kills, errors, serves, aces, serve_errors } }
 //   vb_last_sync          → ISO timestamp of last successful sync
 //   vb_cached_opponents   → ["name1", "name2"]
 //   vb_cached_tournaments → ["name1", "name2"]
@@ -45,9 +45,25 @@ var OfflineStorage = (function() {
     function setJSON(key, value) {
         try {
             localStorage.setItem(key, JSON.stringify(value));
+            return true;
         } catch (e) {
             console.error('Error writing localStorage key:', key, e);
+            showStorageWarning();
+            return false;
         }
+    }
+
+    var storageWarningShown = false;
+
+    function showStorageWarning() {
+        if (storageWarningShown) return;
+        storageWarningShown = true;
+        // Show a non-blocking warning — avoid alert() during rapid stat tracking
+        var banner = document.createElement('div');
+        banner.id = 'storage-warning-banner';
+        banner.style.cssText = 'position:fixed;top:0;left:0;right:0;padding:12px;background:#dc3545;color:#fff;text-align:center;z-index:9999;font-family:sans-serif;font-size:14px;';
+        banner.textContent = 'Storage full — data may not be saving. Please sync or clear old matches.';
+        document.body.appendChild(banner);
     }
 
     // --- Match Operations ---
@@ -155,11 +171,8 @@ var OfflineStorage = (function() {
         if (match) {
             match.sync_status = 'synced';
             saveMatch(match);
-
-            // If the match is both completed and synced, remove local copy
-            if (match.match_status === 'completed') {
-                removeMatch(matchId);
-            }
+            // Local data is NOT removed here — purgeVerifiedLocalStorage()
+            // handles deletion after verifying the data exists in Supabase.
         }
     }
 
@@ -295,7 +308,7 @@ var OfflineStorage = (function() {
             for (var j = 0; j < playerNames.length; j++) {
                 var name = playerNames[j];
                 var stats = playerStats[name];
-                if (stats.attempts === 0 && stats.kills === 0 && stats.errors === 0) {
+                if (stats.attempts === 0 && stats.kills === 0 && stats.errors === 0 && (stats.serves || 0) === 0) {
                     console.log('[SYNC] Step 3: Skipping player', name, '(no data)');
                     continue;
                 }
@@ -305,7 +318,10 @@ var OfflineStorage = (function() {
                     team_name: 'Des Moines Eclipse',
                     attempts: stats.attempts,
                     kills: stats.kills,
-                    errors: stats.errors
+                    errors: stats.errors,
+                    serves: stats.serves || 0,
+                    aces: stats.aces || 0,
+                    serve_errors: stats.serve_errors || 0
                 };
                 console.log('[SYNC] Step 3: Upserting player', name, ':', JSON.stringify(playerPayload));
 
@@ -318,8 +334,25 @@ var OfflineStorage = (function() {
                 console.log('[SYNC] Step 3 player', name, 'result:', JSON.stringify(playerResult));
 
                 if (playerResult.error) {
-                    console.error('[SYNC] FAILED at Step 3 (player ' + name + ' upsert):', playerResult.error.message, playerResult.error);
-                    return false;
+                    // If serve columns don't exist yet, retry without them
+                    console.warn('[SYNC] Step 3: Retrying without serve columns for', name);
+                    var fallbackPayload = {
+                        match_id: matchId,
+                        player_name: name,
+                        team_name: 'Des Moines Eclipse',
+                        attempts: stats.attempts,
+                        kills: stats.kills,
+                        errors: stats.errors
+                    };
+                    var retryResult = await db
+                        .from('player_stats')
+                        .upsert(fallbackPayload, {
+                            onConflict: 'match_id,player_name'
+                        });
+                    if (retryResult.error) {
+                        console.error('[SYNC] FAILED at Step 3 (player ' + name + ' upsert):', retryResult.error.message, retryResult.error);
+                        return false;
+                    }
                 }
             }
 
@@ -433,6 +466,88 @@ var OfflineStorage = (function() {
         return navigator.onLine;
     }
 
+    // --- Match Locking (cross-tab safety) ---
+    // Prevents two tabs from editing the same match simultaneously.
+    // Uses localStorage keys: vb_lock_{matchId} = { tabId, timestamp }
+    // A lock is considered stale after LOCK_TIMEOUT_MS (default 15s).
+    // The owning tab refreshes its lock via a heartbeat interval.
+
+    var LOCK_TIMEOUT_MS = 15000;
+
+    function acquireMatchLock(matchId, tabId) {
+        var lockKey = 'vb_lock_' + matchId;
+        var existing = getJSON(lockKey);
+
+        if (existing && existing.tabId !== tabId) {
+            var age = Date.now() - existing.timestamp;
+            if (age < LOCK_TIMEOUT_MS) {
+                // Lock is held by another active tab
+                return false;
+            }
+            // Lock is stale — previous tab crashed or navigated away
+        }
+
+        setJSON(lockKey, { tabId: tabId, timestamp: Date.now() });
+        return true;
+    }
+
+    function refreshMatchLock(matchId, tabId) {
+        var lockKey = 'vb_lock_' + matchId;
+        var existing = getJSON(lockKey);
+        // Only refresh if we still own the lock
+        if (existing && existing.tabId === tabId) {
+            setJSON(lockKey, { tabId: tabId, timestamp: Date.now() });
+            return true;
+        }
+        return false;
+    }
+
+    function releaseMatchLock(matchId, tabId) {
+        var lockKey = 'vb_lock_' + matchId;
+        var existing = getJSON(lockKey);
+        // Only release if we own the lock
+        if (existing && existing.tabId === tabId) {
+            localStorage.removeItem(lockKey);
+        }
+    }
+
+    function isMatchLocked(matchId, tabId) {
+        var lockKey = 'vb_lock_' + matchId;
+        var existing = getJSON(lockKey);
+        if (!existing) return false;
+        if (existing.tabId === tabId) return false; // Our own lock
+        var age = Date.now() - existing.timestamp;
+        return age < LOCK_TIMEOUT_MS;
+    }
+
+    function clearStaleLocks() {
+        var removed = 0;
+        for (var i = 0; i < localStorage.length; i++) {
+            var key = localStorage.key(i);
+            if (key && key.indexOf('vb_lock_') === 0) {
+                var lock = getJSON(key);
+                if (lock && (Date.now() - lock.timestamp) >= LOCK_TIMEOUT_MS) {
+                    localStorage.removeItem(key);
+                    removed++;
+                    i--; // Adjust index since we removed an item
+                }
+            }
+        }
+        return removed;
+    }
+
+    // --- HTML Escaping ---
+
+    function escapeHTML(str) {
+        if (typeof str !== 'string') return '';
+        return str
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
     // --- Public API ---
 
     return {
@@ -473,7 +588,17 @@ var OfflineStorage = (function() {
         getCachedTournaments: getCachedTournaments,
 
         // Connectivity
-        isOnline: isOnline
+        isOnline: isOnline,
+
+        // Match locking
+        acquireMatchLock: acquireMatchLock,
+        refreshMatchLock: refreshMatchLock,
+        releaseMatchLock: releaseMatchLock,
+        isMatchLocked: isMatchLocked,
+        clearStaleLocks: clearStaleLocks,
+
+        // Utilities
+        escapeHTML: escapeHTML
     };
 
 })();
