@@ -93,6 +93,27 @@ self.addEventListener('fetch', function(event) {
         return;
     }
 
+    // For app-mode.js: network-first so Netlify build changes take effect immediately.
+    // Falls back to cache only when offline.
+    if (url.pathname.endsWith('/app-mode.js') || url.pathname === '/app-mode.js') {
+        event.respondWith(
+            fetch(event.request).then(function(response) {
+                var responseClone = response.clone();
+                caches.open(CACHE_NAME).then(function(cache) {
+                    cache.put(event.request, responseClone);
+                });
+                return response;
+            }).catch(function() {
+                return caches.match(event.request).then(function(cachedResponse) {
+                    return cachedResponse || new Response('var APP_MODE = "production";', {
+                        headers: { 'Content-Type': 'application/javascript' }
+                    });
+                });
+            })
+        );
+        return;
+    }
+
     // For app files: cache-first, network fallback
     // Use ignoreSearch so that e.g. volleyball-tracker.html?matchId=xxx
     // matches the cached volleyball-tracker.html
