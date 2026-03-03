@@ -51,10 +51,12 @@ function isDemoMode() {
 // Show visible indicator when running in demo mode
 function showDemoModeIndicator() {
     if (!isDemoMode()) return;
+    // Skip if page already has its own demo banner (e.g. index.html)
+    if (document.getElementById('demo-banner')) return;
     var banner = document.createElement('div');
     banner.id = 'demo-mode-banner';
-    banner.style.cssText = 'position:fixed;bottom:0;left:0;right:0;padding:6px;background:#ffc107;color:#000;text-align:center;z-index:9999;font-family:sans-serif;font-size:13px;font-weight:bold;';
-    banner.textContent = 'DEMO MODE — Data is local only and will not sync';
+    banner.style.cssText = 'position:fixed;top:0;left:0;right:0;padding:10px 16px;background:linear-gradient(135deg,#f59e0b,#d97706);color:#000;text-align:center;z-index:9999;font-family:Oswald,sans-serif;font-size:1.1rem;font-weight:700;letter-spacing:2px;text-transform:uppercase;';
+    banner.textContent = 'DEMO MODE — Data will not be saved';
     document.body.appendChild(banner);
 }
 

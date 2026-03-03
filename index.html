@@ -379,6 +379,24 @@
             color: white;
         }
 
+        .demo-banner {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            padding: 10px 16px;
+            background: linear-gradient(135deg, #f59e0b, #d97706);
+            color: #000;
+            text-align: center;
+            z-index: 1001;
+            font-family: 'Oswald', sans-serif;
+            font-size: 1.1rem;
+            font-weight: 700;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+        }
+
         .app-version {
             position: fixed;
             bottom: 10px;
@@ -412,6 +430,9 @@
     </style>
 </head>
 <body>
+    <!-- Demo Mode Banner -->
+    <div class="demo-banner" id="demo-banner">Demo Mode — Data will not be saved</div>
+
     <!-- Sync Status Bar -->
     <div class="sync-status-bar hidden" id="sync-status-bar"></div>
 
@@ -463,9 +484,13 @@
             // Always load local in-progress matches (works offline)
             loadLocalInProgressMatches();
 
-            // In demo mode: hide sync bar, skip syncing
+            // In demo mode: show banner, cleanup stale demo data, hide sync bar, skip syncing
             if (isDemoMode()) {
+                document.getElementById('demo-banner').style.display = 'block';
+                document.getElementById('app-version').textContent = 'v' + APP_VERSION + ' — DEMO';
                 document.getElementById('sync-status-bar').style.display = 'none';
+                cleanupDemoData();
+                loadLocalInProgressMatches(); // refresh after cleanup
                 updateAnalyzeStatsButton();
                 return;
             }
@@ -686,6 +711,21 @@
         // Clean up any locks from tabs that crashed or navigated away
         OfflineStorage.clearStaleLocks();
 
+        // ===== DEMO MODE CLEANUP =====
+        // Remove all demo match data from localStorage on page load
+        function cleanupDemoData() {
+            var allMatches = OfflineStorage.getAllMatches();
+            var matchIds = Object.keys(allMatches);
+            var removed = 0;
+            matchIds.forEach(function(id) {
+                OfflineStorage.removeMatch(id);
+                removed++;
+            });
+            if (removed > 0) {
+                console.log('[DEMO] Cleaned up ' + removed + ' stale demo match(es)');
+            }
+        }
+
         // ===== LOAD IN-PROGRESS MATCHES FROM LOCAL STORAGE =====
 
         function loadLocalInProgressMatches() {
@@ -843,7 +883,7 @@
             window.location.href = 'volleyball-tracker.html?matchId=' + encodeURIComponent(matchId);
         }
 
-        // Navigate to Analyze Stats (only if online)
+        // Navigate to Analyze Stats (requires online)
         function goToAnalyzeStats() {
             if (!OfflineStorage.isOnline()) return;
             window.location.href = 'analyze-stats.html';
@@ -855,7 +895,9 @@
             var desc = document.getElementById('analyze-stats-desc');
             if (OfflineStorage.isOnline()) {
                 card.classList.remove('disabled-offline');
-                desc.textContent = 'View and analyze match statistics';
+                desc.textContent = isDemoMode()
+                    ? 'View full season statistics'
+                    : 'View and analyze match statistics';
             } else {
                 card.classList.add('disabled-offline');
                 desc.textContent = 'Requires internet connection';
