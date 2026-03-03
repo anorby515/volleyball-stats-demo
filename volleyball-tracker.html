@@ -2177,8 +2177,16 @@
             finishBtn.disabled = true;
             finishBtn.textContent = 'Syncing...';
 
-            // Await sync to Supabase before navigating (skip in demo mode)
-            if (db && !isDemoMode()) {
+            // In demo mode: delete match data instead of syncing
+            if (isDemoMode()) {
+                OfflineStorage.removeMatch(matchId);
+                console.log('[DEMO] Match data cleaned up on finish');
+                window.location.href = 'index.html';
+                return;
+            }
+
+            // Await sync to Supabase before navigating
+            if (db) {
                 try {
                     var success = await OfflineStorage.syncMatchToSupabase(db, matchId);
                     if (success) {
@@ -2211,6 +2219,9 @@
                 }).catch(function() {});
             }
 
+            if (isDemoMode()) {
+                console.log('[DEMO] Match data cleaned up on delete');
+            }
             alert('Match deleted successfully.');
             window.location.href = 'index.html';
         }
@@ -2285,6 +2296,13 @@
         window.addEventListener('beforeunload', function(e) {
             if (lockHeartbeatTimer) clearInterval(lockHeartbeatTimer);
             OfflineStorage.releaseMatchLock(matchId, tabId);
+
+            // In demo mode: clean up match data on navigation away
+            if (isDemoMode() && matchId) {
+                OfflineStorage.removeMatch(matchId);
+                console.log('[DEMO] Match data cleaned up on page exit');
+                return;
+            }
 
             // Warn if match is in progress and has any scores
             if (matchInfo && matchInfo.match_status === 'in_progress') {
