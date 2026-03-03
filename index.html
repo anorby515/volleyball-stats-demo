@@ -379,21 +379,6 @@
             color: white;
         }
 
-        .demo-mode-badge {
-            display: none;
-            margin: -30px auto 40px;
-            padding: 8px 24px;
-            background: #ffc107;
-            color: #000;
-            font-family: 'Oswald', sans-serif;
-            font-size: 1.2rem;
-            font-weight: 700;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            border-radius: 6px;
-            width: fit-content;
-        }
-
         .app-version {
             position: fixed;
             bottom: 10px;
@@ -437,8 +422,6 @@
         <img src="eclipse-logo.png" alt="Des Moines Eclipse" class="team-logo">
         <p class="subtitle">What would you like to do today?</p>
 
-        <div class="demo-mode-badge" id="demo-mode-badge">Demo Mode — Data is local only</div>
-
         <div class="options-grid">
             <div class="option-card" onclick="startNewMatch()">
                 <div class="option-title">Start a New Match</div>
@@ -480,10 +463,8 @@
             // Always load local in-progress matches (works offline)
             loadLocalInProgressMatches();
 
-            // In demo mode: show badge, hide sync bar, skip syncing
+            // In demo mode: hide sync bar, skip syncing
             if (isDemoMode()) {
-                document.getElementById('demo-mode-badge').style.display = 'block';
-                document.getElementById('app-version').textContent = 'v' + APP_VERSION + ' — DEMO';
                 document.getElementById('sync-status-bar').style.display = 'none';
                 updateAnalyzeStatsButton();
                 return;
@@ -862,20 +843,17 @@
             window.location.href = 'volleyball-tracker.html?matchId=' + encodeURIComponent(matchId);
         }
 
-        // Navigate to Analyze Stats (only if online, or always in demo mode)
+        // Navigate to Analyze Stats (only if online)
         function goToAnalyzeStats() {
-            if (!isDemoMode() && !OfflineStorage.isOnline()) return;
+            if (!OfflineStorage.isOnline()) return;
             window.location.href = 'analyze-stats.html';
         }
 
-        // Enable/disable Analyze Stats based on connectivity (always enabled in demo mode)
+        // Enable/disable Analyze Stats based on connectivity
         function updateAnalyzeStatsButton() {
             var card = document.getElementById('analyze-stats-card');
             var desc = document.getElementById('analyze-stats-desc');
-            if (isDemoMode()) {
-                card.classList.remove('disabled-offline');
-                desc.textContent = 'View and analyze local match statistics';
-            } else if (OfflineStorage.isOnline()) {
+            if (OfflineStorage.isOnline()) {
                 card.classList.remove('disabled-offline');
                 desc.textContent = 'View and analyze match statistics';
             } else {

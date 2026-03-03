@@ -986,8 +986,8 @@
             setTimeout(function() {
                 db = tryInitSupabase();
 
-                if (!db || isDemoMode()) {
-                    console.log('No database connection or demo mode, loading local data only...');
+                if (!db) {
+                    console.log('No database connection, loading local data only...');
                     readFiltersFromURL();
                     loadLocalOnly();
                 } else {
