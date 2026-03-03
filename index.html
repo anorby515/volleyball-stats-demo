@@ -464,6 +464,7 @@
             loadLocalInProgressMatches();
 
             // In demo mode: hide sync bar, skip syncing
+            console.log('[index] isDemoMode:', isDemoMode(), '| APP_MODE:', typeof APP_MODE !== 'undefined' ? APP_MODE : 'UNDEFINED');
             if (isDemoMode()) {
                 document.getElementById('sync-status-bar').style.display = 'none';
                 updateAnalyzeStatsButton();

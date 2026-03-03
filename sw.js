@@ -6,7 +6,7 @@
 // ============================================================================
 
 // Cache version derived from APP_VERSION in config.js — keep in sync
-var CACHE_NAME = 'vb-tracker-v2.2.0';
+var CACHE_NAME = 'vb-tracker-v2.2.1';
 
 var APP_SHELL_FILES = [
     './',
@@ -14,7 +14,6 @@ var APP_SHELL_FILES = [
     './match-setup.html',
     './volleyball-tracker.html',
     './analyze-stats.html',
-    './app-mode.js',
     './config.js',
     './offline-storage.js',
     './manifest.json'
@@ -90,6 +89,13 @@ self.addEventListener('fetch', function(event) {
                 });
             })
         );
+        return;
+    }
+
+    // app-mode.js is never cached — always fetch from network so build-time
+    // changes (demo vs production) take effect immediately without SW cache issues
+    if (url.pathname.endsWith('/app-mode.js')) {
+        event.respondWith(fetch(event.request));
         return;
     }
 
